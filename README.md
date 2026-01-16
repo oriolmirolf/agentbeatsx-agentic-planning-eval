@@ -13,7 +13,7 @@ Performance is captured in a single **Episode Score [0,1]**:
 
 * **Validity (Mandatory)**: 0 score if any action violates a formal precondition.
 * **Goal Success**: 0 score if the goal is not met (for solvable) or incorrectly flagged (for unsolvable).
-* **Efficiency**: For successful plans, the score is the ratio of **Optimal Plan Length / Actual Plan Length** ().
+* **Efficiency**: For successful plans, the score is the ratio of **Optimal Plan Length / Actual Plan Length**.
 * **Infeasibility Detection**: 1.0 score for correctly identifying an unsolvable task without hallucinating a plan.
 
 ## Requirements for Participant Agents

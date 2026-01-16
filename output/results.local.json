@@ -1,0 +1,38 @@
+{
+  "ok": true,
+  "benchmark_id": "FormaPlan-Autonomous",
+  "suite": {
+    "domains": [
+      "blocks"
+    ],
+    "indices": [
+      1
+    ]
+  },
+  "summary": {
+    "input_tokens": 71,
+    "output_tokens": 6,
+    "success_count": 0,
+    "normalized_score": 0.0,
+    "total_tasks": 1
+  },
+  "results": [
+    {
+      "domain": "blocks",
+      "problem": 1,
+      "is_executable": true,
+      "is_success": false,
+      "finish_reason": "goal_not_reached",
+      "score": 0.0,
+      "optimal_cost": 4.0,
+      "episode_max_steps": 20,
+      "limit_multiplier": 3.0,
+      "min_turns": 20,
+      "unsolvable_multiplier": 3.0,
+      "steps_taken": 0,
+      "optimal_steps": 4.0,
+      "input_tokens": 71,
+      "output_tokens": 6
+    }
+  ]
+}

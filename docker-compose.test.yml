@@ -1,0 +1,17 @@
+services:
+  planner:
+    image: ghcr.io/oriolmirolf/agentbeatsx-agentic-planning-eval:latest
+    environment:
+      - PYTHONPATH=/app
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    entrypoint: ["python", "-m", "purple_agent.a2a_server", "--port", "8001"]
+
+  oracle:
+    image: ghcr.io/oriolmirolf/agentbeatsx-agentic-planning-eval:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - GREEN_AGENT_URL=http://localhost:8000
+    network_mode: "service:planner" 
+    depends_on:
+      - planner

@@ -1,0 +1,25 @@
+FROM python:3.10-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+
+FROM python:3.10-slim AS runtime
+
+WORKDIR /app
+COPY --from=builder /usr/local /usr/local
+
+COPY purple_agent/ /app/purple_agent/
+
+ENV PYTHONPATH=/app
+
+LABEL org.opencontainers.image.source="https://github.com/oriolmirolf/agentbeatsx-agentic-planning-eval"
+
+ENTRYPOINT ["python", "-m", "purple_agent.a2a_server"]

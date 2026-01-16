@@ -1,0 +1,37 @@
+# Dockerfile.green
+FROM python:3.10-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+
+FROM python:3.10-slim AS runtime
+
+WORKDIR /app
+
+COPY --from=builder /usr/local /usr/local
+
+COPY green_agent/ /app/green_agent/
+COPY examples/ /app/examples/
+
+RUN mkdir -p /opt/val
+COPY green_agent/VAL/bin/ /opt/val/
+
+RUN ln -sf /opt/val/Validate /usr/local/bin/Validate && \
+    chmod +x /opt/val/Validate
+
+ENV PYTHONPATH=/app
+ENV EXAMPLES_DIR=/app/examples
+ENV VAL_PATH=/usr/local/bin/Validate
+ENV LD_LIBRARY_PATH=/opt/val:$LD_LIBRARY_PATH
+
+LABEL org.opencontainers.image.source="https://github.com/oriolmirolf/agentbeatsx-agentic-planning-eval"
+
+ENTRYPOINT ["python", "-m", "green_agent.a2a_server"]

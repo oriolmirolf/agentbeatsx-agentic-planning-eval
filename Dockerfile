@@ -14,11 +14,17 @@ COPY green_agent/ ./green_agent/
 COPY purple_agent/ ./purple_agent/
 COPY examples/ ./examples/
 
-COPY green_agent/VAL/bin/Validate /usr/local/bin/Validate
-RUN chmod +x /usr/local/bin/Validate
+RUN mkdir -p /opt/val
+COPY green_agent/VAL/bin/ /opt/val/
+
+RUN ln -sf /opt/val/Validate /usr/local/bin/Validate && \
+    chmod +x /opt/val/Validate
 
 ENV PYTHONPATH=/app
 ENV EXAMPLES_DIR=/app/examples
-ENV VAL_PATH=/usr/local/bin/Validate
+ENV VAL_PATH=/usr/local/bin/Validate 
+ENV LD_LIBRARY_PATH=/opt/val:$LD_LIBRARY_PATH
+
+LABEL org.opencontainers.image.source=https://github.com/oriolmirolf/agentbeatsx-agentic-planning-eval
 
 ENTRYPOINT ["python", "-m", "green_agent.a2a_server"]

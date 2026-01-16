@@ -1,0 +1,106 @@
+{
+  "artifacts": [
+    {
+      "artifactId": "aa8af185-527e-427a-a1e8-03a4f633c2fd",
+      "name": "FormaPlan Oracle: Final Formal Result",
+      "parts": [
+        {
+          "data": {
+            "ok": true,
+            "benchmark_id": "FormaPlan-Autonomous",
+            "suite": {
+              "domains": [
+                "blocks"
+              ],
+              "indices": [
+                1
+              ]
+            },
+            "summary": {
+              "input_tokens": 71,
+              "output_tokens": 6,
+              "success_count": 0,
+              "normalized_score": 0.0,
+              "total_tasks": 1
+            },
+            "results": [
+              {
+                "domain": "blocks",
+                "problem": 1,
+                "is_executable": true,
+                "is_success": false,
+                "finish_reason": "goal_not_reached",
+                "score": 0.0,
+                "optimal_cost": 4.0,
+                "episode_max_steps": 20,
+                "limit_multiplier": 3.0,
+                "min_turns": 20,
+                "unsolvable_multiplier": 3.0,
+                "steps_taken": 0,
+                "optimal_steps": 4.0,
+                "input_tokens": 71,
+                "output_tokens": 6
+              }
+            ]
+          },
+          "kind": "data"
+        }
+      ]
+    }
+  ],
+  "contextId": "e128a96f36ee425ca5bf0b5569b65b34",
+  "history": [
+    {
+      "contextId": "e128a96f36ee425ca5bf0b5569b65b34",
+      "kind": "message",
+      "messageId": "14e754ad957942bcb9ccdde05aa4428d",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "{\"participants\": {\"planner\": \"http://purple:8001\"}, \"config\": {\"domain\": \"blocks\", \"index\": 1}}"
+        }
+      ],
+      "role": "user",
+      "taskId": "81766acf-71a7-48dc-8695-a55ce8a84f3c"
+    },
+    {
+      "kind": "message",
+      "messageId": "01ea67b2-2705-4118-ae11-1d0927441743",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Oracle: Starting Fast Test (1 domain(s))..."
+        }
+      ],
+      "role": "agent"
+    },
+    {
+      "kind": "message",
+      "messageId": "6e0cff54-f0c8-4544-8750-04b2e91fe0c5",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Status: Formalizing BLOCKS Task 1..."
+        }
+      ],
+      "role": "agent"
+    }
+  ],
+  "id": "81766acf-71a7-48dc-8695-a55ce8a84f3c",
+  "kind": "task",
+  "status": {
+    "message": {
+      "kind": "message",
+      "messageId": "1b34cf3d-f666-4482-b456-e5776fe0687f",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Benchmark Complete. Success: 0/1 | Avg score: 0.000"
+        }
+      ],
+      "role": "agent"
+    },
+    "state": "completed",
+    "timestamp": "2026-01-16T04:39:23.951248+00:00"
+  }
+}

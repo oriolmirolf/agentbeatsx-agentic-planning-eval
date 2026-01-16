@@ -3,23 +3,29 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
+import os
 import re
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional
 
 import httpx
 
 from green_agent import tools_backend as tb
 
+# -----------------------------------------------------------------------------
+# CRITICAL NETWORK FIX (proxy-proof inside Docker & CI)
+# -----------------------------------------------------------------------------
+os.environ["NO_PROXY"] = "*"
+os.environ["no_proxy"] = "*"
+for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
+    os.environ.pop(k, None)
 
 # -----------------------------------------------------------------------------
 # A single global lock to protect tools_backend's global episode state (_EP).
-# If you later refactor tools_backend to be per-episode objects, you can remove
-# this lock.
 # -----------------------------------------------------------------------------
 _EP_LOCK = asyncio.Lock()
-
 
 # -----------------------------------------------------------------------------
 # Helpers (parsing + error categorization)
@@ -61,30 +67,40 @@ def _extract_json_obj(text: str) -> dict[str, Any]:
     if not text:
         raise ValueError("Empty response")
 
-    # 1. Try Regex for Markdown blocks
+    # 1) Markdown fenced block
     m = _JSON_FENCE_RE.search(text)
     if m:
         try:
-            return json.loads(m.group(1))
-        except json.JSONDecodeError:
-            pass # Fall through to heuristic
+            obj = json.loads(m.group(1))
+            if not isinstance(obj, dict):
+                raise ValueError("JSON must be an object")
+            return obj
+        except Exception:
+            pass  # fall through
 
-    # 2. Heuristic: Find first '{' and last '}'
+    # 2) Heuristic: first '{' and last '}'
     s = text.strip()
     start = s.find("{")
     end = s.rfind("}")
-    
+
     if start == -1 or end == -1 or end <= start:
-        # Fallback: try loading the whole string (e.g. if it's just a number or string)
+        # Fallback: try parsing the whole string
         try:
-            return json.loads(s)
-        except:
+            obj = json.loads(s)
+        except Exception:
             raise ValueError(f"No JSON object found in response: {s[:200]}")
-            
+        if not isinstance(obj, dict):
+            raise ValueError(f"Expected JSON object, got {type(obj)}")
+        return obj
+
     try:
-        return json.loads(s[start : end + 1])
+        obj = json.loads(s[start : end + 1])
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON found between braces: {e}")
+
+    if not isinstance(obj, dict):
+        raise ValueError(f"Expected JSON object, got {type(obj)}")
+    return obj
 
 
 def _normalize_tool_call(obj: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -109,7 +125,6 @@ def _normalize_tool_call(obj: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         raise ValueError(f"Tool args must be an object/dict. Got: {type(args)}")
 
     t = tool.strip()
-    # common normalizations
     if t.lower() in {"finish", "submit_episode"}:
         t = "submit"
     return t, args
@@ -117,7 +132,6 @@ def _normalize_tool_call(obj: dict[str, Any]) -> tuple[str, dict[str, Any]]:
 
 def _is_hallucinated_action_err(out: str) -> bool:
     lower = out.lower()
-    # Mirrors your EpisodeTools heuristic; adjust phrases to match your backend.
     return any(
         x in lower
         for x in [
@@ -149,15 +163,13 @@ def _is_syntax_action_err(out: str) -> bool:
 
 def _safe_call(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
     """
-    Like your EpisodeTools._call: tolerate minor signature differences.
+    Like EpisodeTools._call: tolerate minor signature differences.
     """
     try:
         return fn(*args, **kwargs)
     except TypeError:
-        # try kwargs-only (some wrappers)
         if kwargs and not args:
             return fn(**kwargs)
-        # try args-only (some wrappers)
         if args and not kwargs:
             return fn(*args)
         raise
@@ -172,14 +184,14 @@ async def _a2a_jsonrpc_send(
     base_url: str,
     user_text: str,
     context_id: str,
-    timeout_s: float = 120.0,
+    timeout_s: float = 300.0,
 ) -> dict[str, Any]:
     """
-    Sends JSON-RPC method "message/send" to the purple A2A server.
-
-    Expected response shape (best-effort):
-      {"jsonrpc":"2.0","id":"...","result":{...}}
+    Sends JSON-RPC method "message/send" to an A2A server.
     """
+    if "://" not in base_url:
+        base_url = "http://" + base_url
+
     url = base_url.rstrip("/") + "/"
     req_id = uuid.uuid4().hex
 
@@ -194,10 +206,7 @@ async def _a2a_jsonrpc_send(
                 "contextId": context_id,
                 "parts": [{"kind": "text", "text": user_text}],
             },
-            # Try to encourage “single-turn” completion on purple side
-            "configuration": {
-                "blocking": True,
-            },
+            "configuration": {"blocking": True},
         },
     }
 
@@ -205,36 +214,71 @@ async def _a2a_jsonrpc_send(
     resp.raise_for_status()
     data = resp.json()
     if "error" in data:
-        raise RuntimeError(f"Purple A2A error: {data['error']}")
+        raise RuntimeError(f"A2A error: {data['error']}")
     if "result" not in data:
-        raise RuntimeError(f"Purple A2A missing result: {data}")
-    return data["result"]
+        raise RuntimeError(f"A2A missing result: {data}")
+    res = data["result"]
+    if not isinstance(res, dict):
+        raise RuntimeError(f"A2A result not an object: {type(res)}")
+    return res
+
+
+def _extract_text_from_parts(parts: Any) -> str:
+    if not isinstance(parts, list):
+        return ""
+    texts: list[str] = []
+    for p in parts:
+        if isinstance(p, dict):
+            if (p.get("kind") == "text" or p.get("type") == "text" or "text" in p) and isinstance(p.get("text"), str):
+                texts.append(p["text"])
+    return "\n".join(texts).strip()
 
 
 def _extract_purple_text(result: dict[str, Any]) -> str:
     """
-    Extracts combined text from A2A message-like results.
+    Extracts text from A2A responses. Purple may return:
+      1) Message-like: {"kind":"message","parts":[...]} or {"message": {"parts":[...]}}
+      2) Task-like: {"kind":"task","status":{"message":{"parts":[...]}}}
+      3) Messages in history: {"history":[{"role":"agent","parts":[...]}], ...}
     """
-    # most common: {"type":"message","parts":[...]}
-    parts = None
-    if isinstance(result, dict):
-        if "parts" in result:
-            parts = result["parts"]
-        elif "message" in result and isinstance(result["message"], dict):
-            parts = result["message"].get("parts")
+    if not isinstance(result, dict):
+        raise RuntimeError(f"Purple returned non-object result: {type(result)}")
 
-    if not parts:
-        # Could be a task; for this benchmark, require message responses.
-        raise RuntimeError(f"Purple returned non-message result (no parts): {result}")
+    # (1) direct message
+    txt = _extract_text_from_parts(result.get("parts"))
+    if txt:
+        return txt
 
-    texts: list[str] = []
-    for p in parts:
-        if not isinstance(p, dict):
-            continue
-        # accept both server styles: {"type":"text","text":...} or {"kind":"text","text":...}
-        if p.get("type") == "text" or p.get("kind") == "text" or ("text" in p and isinstance(p["text"], str)):
-            texts.append(p["text"])
-    return "\n".join(texts).strip()
+    msg = result.get("message")
+    if isinstance(msg, dict):
+        txt = _extract_text_from_parts(msg.get("parts"))
+        if txt:
+            return txt
+
+    # (2) task.status.message
+    status = result.get("status")
+    if isinstance(status, dict):
+        st_msg = status.get("message")
+        if isinstance(st_msg, dict):
+            txt = _extract_text_from_parts(st_msg.get("parts"))
+            if txt:
+                return txt
+
+    # (3) search history for latest agent message
+    history = result.get("history")
+    if isinstance(history, list) and history:
+        for item in reversed(history):
+            if isinstance(item, dict) and item.get("role") == "agent":
+                txt = _extract_text_from_parts(item.get("parts"))
+                if txt:
+                    return txt
+        for item in reversed(history):
+            if isinstance(item, dict):
+                txt = _extract_text_from_parts(item.get("parts"))
+                if txt:
+                    return txt
+
+    raise RuntimeError(f"Purple returned no parsable text parts: {result}")
 
 
 # -----------------------------------------------------------------------------
@@ -267,7 +311,6 @@ class InteractiveResult:
 
 
 def _tool_help_text() -> str:
-    # Keep this short; you can generate from tb.TOOL_SIGNATURES if you want.
     return (
         "TOOLS (respond with JSON only):\n"
         '- {"tool":"get_task_overview","args":{}}\n'
@@ -277,7 +320,7 @@ def _tool_help_text() -> str:
         '- {"tool":"describe_action","args":{"action_name":"..."}}\n'
         '- {"tool":"get_state","args":{"max_facts":200}}  # optional\n'
         '- {"tool":"act","args":{"step_text":"(action arg1 arg2)"}}\n'
-            '- {"tool":"get_history","args":{}}\n'
+        '- {"tool":"get_history","args":{}}\n'
         '- {"tool":"submit","args":{"unsolvable":false}}  # set true to declare unsolvable\n'
     )
 
@@ -313,19 +356,20 @@ async def evaluate_interactive(
     """
     Runs the interactive tool loop against the purple agent at `purple_url`.
     """
-    # Ground truth solvability convention from your prompts.json:
-    # optimal_cost == -1 => unsolvable
+
+    # Ground truth solvability convention:
+    # optimal_cost < 0 => unsolvable
     is_gt_solvable = True
     optimal_steps = float(optimal_cost or 0.0)
     if optimal_cost is not None and optimal_cost < 0:
         is_gt_solvable = False
         optimal_steps = 0.0
 
-    # Step limit logic (mirrors your script)
+    # Step limit logic:
     if is_gt_solvable and optimal_steps > 0:
-        ep_limit = max(20, int(optimal_steps * limit_multiplier))
+        ep_limit = max(20, int(math.floor(optimal_steps * limit_multiplier)))
     else:
-        ep_limit = max_iters
+        ep_limit = int(max_iters)
 
     counters = ToolPolicyCounters()
     transcript: list[dict[str, Any]] = []
@@ -335,11 +379,8 @@ async def evaluate_interactive(
     declared_unsolvable = False
 
     async with _EP_LOCK:
-        # Reset env episode
         tb.reset_episode(domain_name, problem_index, val_path=val_path, tolerance=0.001)
 
-        # Optional: you can start by giving the purple agent the human prompt_text
-        # but NOT the raw PDDL. prompt_text should be natural language overview.
         observation = (
             f"{prompt_text.strip()}\n\n"
             "Episode started. Use get_task_overview() and list_actions() to begin."
@@ -347,7 +388,11 @@ async def evaluate_interactive(
 
         context_id = uuid.uuid4().hex
 
-        async with httpx.AsyncClient() as http:
+        # Make httpx proxy-proof even if env has proxies
+        timeout = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=30.0)
+        limits = httpx.Limits(max_connections=50, max_keepalive_connections=20)
+
+        async with httpx.AsyncClient(timeout=timeout, limits=limits, trust_env=False) as http:
             for t in range(ep_limit):
                 turn_prompt = _build_turn_prompt(observation)
 
@@ -358,6 +403,7 @@ async def evaluate_interactive(
                         base_url=purple_url,
                         user_text=turn_prompt,
                         context_id=context_id,
+                        timeout_s=300.0,
                     )
                     purple_text = _extract_purple_text(result)
                 except Exception as e:
@@ -373,19 +419,13 @@ async def evaluate_interactive(
                     counters.syntax_error_count += 1
                     observation = f"Error: Invalid tool call format ({e}). Reply with JSON only."
                     transcript.append(
-                        {
-                            "turn": t,
-                            "purple_raw": purple_text,
-                            "tool_call": None,
-                            "observation": observation,
-                        }
+                        {"turn": t, "purple_raw": purple_text, "tool_call": None, "observation": observation}
                     )
                     continue
 
                 tool_name_norm = tool_name.strip()
                 counters.track(tool_name_norm)
 
-                # Execute tool
                 tool_obs = ""
                 terminal = False
 
@@ -399,7 +439,6 @@ async def evaluate_interactive(
                         tool_obs = _safe_call(tb.get_task_overview, domain_name, problem_index)
 
                     elif tool_name_norm == "list_actions":
-                        # list_actions signature varies in some versions; be tolerant.
                         try:
                             tool_obs = _safe_call(tb.list_actions, domain_name)
                         except TypeError:
@@ -428,7 +467,6 @@ async def evaluate_interactive(
                     elif tool_name_norm == "act":
                         tool_obs = _safe_call(tb.act, tool_args["step_text"])
 
-                        # Enforce your “allowed vs fatal” policy
                         if isinstance(tool_obs, str) and "Executed: NO" in tool_obs:
                             if _is_hallucinated_action_err(tool_obs):
                                 counters.hallucinated_action_count += 1
@@ -452,8 +490,8 @@ async def evaluate_interactive(
                         counters.hallucinated_tool_count += 1
                         tool_obs = (
                             f"Error: Tool '{tool_name_norm}' not found.\n"
-                            f"Valid tools are: get_task_overview, list_actions, list_objects, "
-                            f"describe_object, describe_action, get_state, act, get_history, submit."
+                            "Valid tools are: get_task_overview, list_actions, list_objects, "
+                            "describe_object, describe_action, get_state, act, get_history, submit."
                         )
 
                 except Exception as e:
@@ -489,7 +527,7 @@ async def evaluate_interactive(
                 finish_reason = f"submit_crash:{e}"
                 submit_text = f"Submit Failed: {e}"
 
-        # Decide success/failure reasons (mirrors your script)
+        # Decide success/failure reasons
         if finish_reason == "precondition_violation":
             is_success = False
         elif declared_unsolvable:
@@ -512,7 +550,7 @@ async def evaluate_interactive(
                 is_success = False
                 finish_reason = finish_reason if finish_reason != "unknown" else "goal_not_reached"
 
-        # Score: same as your harness
+        # Score
         score = 0.0
         if is_success:
             if not is_gt_solvable:

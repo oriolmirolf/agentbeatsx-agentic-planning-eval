@@ -9,3 +9,4 @@ agentbeats
 a2a-sdk[http-server]>=0.1.0
 starlette
 sse-starlette
+openai>=1.0.0

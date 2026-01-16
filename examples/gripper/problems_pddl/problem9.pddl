@@ -1,0 +1,40 @@
+(define (problem gripper-p09)
+  (:domain gripper)
+  (:objects
+    roo_bcabae roo_59c817 roo_isolated - room  ;; Added isolated room
+    gri_32fce4 gri_42e92a - gripper
+    bal_07e7cd bal_e201c6 bal_58c0e0 bal_a03846 bal_d17358 bal_f061eb bal_d0c241 bal_1a5af3 bal_4eb1be - ball
+  )
+  (:init
+    (= (total-cost) 0)
+    (at-robot roo_bcabae)
+    (free gri_32fce4)
+    (free gri_42e92a)
+    
+    ;; 8 balls accessible
+    (at bal_07e7cd roo_bcabae)
+    (at bal_e201c6 roo_bcabae)
+    (at bal_58c0e0 roo_bcabae)
+    (at bal_a03846 roo_bcabae)
+    (at bal_d17358 roo_bcabae)
+    (at bal_f061eb roo_bcabae)
+    (at bal_d0c241 roo_bcabae)
+    (at bal_1a5af3 roo_bcabae)
+
+    ;; UNSOLVABLE MODIFICATION: One ball is in a room unreachable by the robot
+    ;; (Robot is at roo_bcabae, this ball is at roo_isolated)
+    (at bal_4eb1be roo_isolated) 
+  )
+  (:goal (and
+    (at bal_07e7cd roo_59c817)
+    (at bal_e201c6 roo_59c817)
+    (at bal_58c0e0 roo_59c817)
+    (at bal_a03846 roo_59c817)
+    (at bal_d17358 roo_59c817)
+    (at bal_f061eb roo_59c817)
+    (at bal_d0c241 roo_59c817)
+    (at bal_1a5af3 roo_59c817)
+    (at bal_4eb1be roo_59c817)
+  ))
+  (:metric minimize (total-cost))
+)

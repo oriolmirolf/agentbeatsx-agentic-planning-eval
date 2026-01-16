@@ -1,0 +1,502 @@
+{
+  "domain_prompt": "DOMAIN BRIEF\n\n# Summary\nThis domain models a classic blocks world with a single robot arm. Blocks can be on the table, on top of other blocks, clear on top, held by the arm, or free with the arm empty. The available actions are pick-up, put-down, stack, and unstack, each changing which block is held, which surfaces are clear, and where blocks are located.\n\n# Object Types\n- Block: A standard block that can be stacked or moved.\n\n# World Description\nThe robot operates in a physical environment governed by specific manipulation rules:\n1. Grip Limit: The robot has a single arm. It can either be holding exactly one block or be empty. It cannot hold two blocks at once.\n2. The Table: The table is the base surface. Any number of blocks can sit directly on the table.\n3. Stacking Physics: Blocks can be stacked on top of one another to form towers. A block is considered \"clear\" if nothing is resting on top of it.\n4. Accessibility: You can only pick up or stack onto a block if it is currently clear. You cannot move a block that is buried under others.\n\n# Actions\n\n## Action: pick-up\n- Parameters: Target Block\n- Requirements: This action picks up a block from the table. The Target Block must be currently on the table, it must be clear (nothing on top of it), and the robot arm must be empty.\n- Effects: The robot arm is now holding the Target Block. The arm is no longer empty. The block is no longer on the table and is no longer marked as clear (since it is being held).\n\n## Action: put-down\n- Parameters: Target Block\n- Requirements: This action places a block onto the table. The robot arm must currently be holding the Target Block.\n- Effects: The Target Block is placed on the table. It becomes clear (nothing on top). The robot arm becomes empty and is no longer holding the block.\n\n## Action: stack\n- Parameters: Target Block, Underlying Block\n- Requirements: This action stacks one block on top of another. The robot arm must be holding the Target Block, and the Underlying Block must be clear (nothing on top of it).\n- Effects: The Target Block is placed on top of the Underlying Block. The Target Block becomes clear. The Underlying Block is no longer clear. The robot arm becomes empty.\n\n## Action: unstack\n- Parameters: Target Block, Underlying Block\n- Requirements: This action lifts a block off of another block. The Target Block must be sitting on top of the Underlying Block. The Target Block must be clear, and the robot arm must be empty.\n- Effects: The robot arm is now holding the Target Block. The Underlying Block becomes clear (since the top block was removed). The Target Block is no longer clear and no longer on the Underlying Block. The arm is no longer empty.",
+  "actions": [
+    {
+      "name": "pick-up",
+      "signature": "pick-up(X)",
+      "parameters": [
+        {
+          "name": "X",
+          "kind": "block"
+        }
+      ],
+      "preconditions": [
+        "The hand is empty.",
+        "Block X is on the table.",
+        "Block X is clear (nothing on top of it)."
+      ],
+      "effects": [
+        "The hand is holding block X.",
+        "Block X is no longer on the table.",
+        "Block X is no longer clear (because it is being held).",
+        "The hand is no longer empty."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "put-down",
+      "signature": "put-down(X)",
+      "parameters": [
+        {
+          "name": "X",
+          "kind": "block"
+        }
+      ],
+      "preconditions": [
+        "The hand is holding block X."
+      ],
+      "effects": [
+        "The hand is empty.",
+        "The hand is no longer holding block X.",
+        "Block X is on the table.",
+        "Block X is clear."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "stack",
+      "signature": "stack(X, Y)",
+      "parameters": [
+        {
+          "name": "X",
+          "kind": "block"
+        },
+        {
+          "name": "Y",
+          "kind": "block"
+        }
+      ],
+      "preconditions": [
+        "The hand is holding block X.",
+        "Block Y is clear (nothing on top of it)."
+      ],
+      "effects": [
+        "The hand is empty.",
+        "The hand is no longer holding block X.",
+        "Block X is on top of block Y.",
+        "Block X is clear.",
+        "Block Y is no longer clear."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "unstack",
+      "signature": "unstack(X, Y)",
+      "parameters": [
+        {
+          "name": "X",
+          "kind": "block"
+        },
+        {
+          "name": "Y",
+          "kind": "block"
+        }
+      ],
+      "preconditions": [
+        "The hand is empty.",
+        "Block X is on top of block Y.",
+        "Block X is clear (nothing on top of it)."
+      ],
+      "effects": [
+        "The hand is holding block X.",
+        "The hand is no longer empty.",
+        "Block X is no longer on top of block Y.",
+        "Block X is no longer clear (because it is being held).",
+        "Block Y becomes clear."
+      ],
+      "cost": 1
+    }
+  ],
+  "problems": [
+    {
+      "id": "p01",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA robot arm with three blocks on a table.\n\n# Objects\n- Block: blo_c80dc9, blo_0c8fa4, blo_5ce8c5\n- Robot Arm: arm\n\n# Initial State\n- Robot Arm: The robot arm is currently holding nothing.\n- Blocks on the table: Blocks blo_c80dc9, blo_0c8fa4, and blo_5ce8c5 are each sitting directly on the table.\n- Clear surfaces: There is nothing on top of blo_c80dc9, blo_0c8fa4, or blo_5ce8c5.\n\n# Goal State\n- Block blo_0c8fa4 is stacked on top of block blo_5ce8c5.\n- Block blo_c80dc9 is stacked on top of block blo_0c8fa4.\n\n# Optimization Metric\n- None",
+      "overview": {
+        "description": "Rearrange blocks to satisfy the goal stacking configuration.",
+        "initial_state": "blo_c80dc9, blo_0c8fa4, blo_5ce8c5 are each on the table and clear; the hand is empty.",
+        "goal": "blo_c80dc9 is on blo_0c8fa4 and blo_0c8fa4 is on blo_5ce8c5 (tower top->bottom: blo_c80dc9, blo_0c8fa4, blo_5ce8c5)."
+      },
+      "objects": [
+        {
+          "name": "blo_c80dc9",
+          "kind": "block",
+          "summary": "Block blo_c80dc9.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_0c8fa4",
+          "kind": "block",
+          "summary": "Block blo_0c8fa4.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_5ce8c5",
+          "kind": "block",
+          "summary": "Block blo_5ce8c5.",
+          "attributes": {}
+        }
+      ],
+      "optimal_cost": 4,
+      "difficulty": "easy"
+    },
+    {
+      "id": "p02",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA robot arm with 3 blocks arranged as a small stack and a separate block on a table.\n\n# Objects\n- Block: blo_c80dc9, blo_0c8fa4, blo_5ce8c5\n- Robot Arm: robot_arm\n\n# Initial State\n- Robot arm: The robot arm is holding nothing.\n- Block layout: Block blo_0c8fa4 is on top of blo_c80dc9, and blo_c80dc9 is sitting on the table. Block blo_5ce8c5 is also sitting on the table.\n- Top surfaces: There is nothing on top of blo_0c8fa4 or blo_5ce8c5.\n\n# Goal State\n- Block blo_c80dc9 should be placed on top of blo_5ce8c5.\n- Block blo_0c8fa4 should be placed on top of blo_c80dc9.\n\n# Optimization Metric\nNone",
+      "overview": {
+        "description": "Rearrange blocks to satisfy the goal stacking configuration.",
+        "initial_state": "blo_0c8fa4 is on blo_c80dc9 (blo_c80dc9 on the table); blo_5ce8c5 is on the table. blo_0c8fa4 and blo_5ce8c5 are clear; the hand is empty.",
+        "goal": "blo_c80dc9 is on blo_5ce8c5 and blo_0c8fa4 is on blo_c80dc9 (tower top->bottom: blo_0c8fa4, blo_c80dc9, blo_5ce8c5)."
+      },
+      "objects": [
+        {
+          "name": "blo_c80dc9",
+          "kind": "block",
+          "summary": "Block blo_c80dc9.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_0c8fa4",
+          "kind": "block",
+          "summary": "Block blo_0c8fa4.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_5ce8c5",
+          "kind": "block",
+          "summary": "Block blo_5ce8c5.",
+          "attributes": {}
+        }
+      ],
+      "optimal_cost": 6,
+      "difficulty": "easy"
+    },
+    {
+      "id": "p03",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA robot arm with 3 blocks arranged as a three-block tower on a table.\n\n# Objects\n- Block: blo_c80dc9, blo_0c8fa4, blo_5ce8c5\n\n# Initial State\n- Layout: Block blo_5ce8c5 is on top of blo_0c8fa4, which is on top of blo_c80dc9. Block blo_c80dc9 is sitting on the table.\n- Accessibility: There is nothing on top of blo_5ce8c5. The robot arm is currently holding nothing.\n\n# Goal State\n- Block blo_0c8fa4 should be on top of blo_5ce8c5.\n- Block blo_c80dc9 should be on top of blo_0c8fa4.\n\n# Optimization Metric\nNone",
+      "overview": {
+        "description": "Rearrange blocks to satisfy the goal stacking configuration.",
+        "initial_state": "blo_5ce8c5 is on blo_0c8fa4 and blo_0c8fa4 is on blo_c80dc9 (blo_c80dc9 on the table). blo_5ce8c5 is clear; the hand is empty.",
+        "goal": "blo_c80dc9 is on blo_0c8fa4 and blo_0c8fa4 is on blo_5ce8c5 (tower top->bottom: blo_c80dc9, blo_0c8fa4, blo_5ce8c5)."
+      },
+      "objects": [
+        {
+          "name": "blo_c80dc9",
+          "kind": "block",
+          "summary": "Block blo_c80dc9.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_0c8fa4",
+          "kind": "block",
+          "summary": "Block blo_0c8fa4.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_5ce8c5",
+          "kind": "block",
+          "summary": "Block blo_5ce8c5.",
+          "attributes": {}
+        }
+      ],
+      "optimal_cost": 6,
+      "difficulty": "easy"
+    },
+    {
+      "id": "p04",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA robot arm and four blocks arranged as two small towers on a table.\n\n# Objects\n- Block: blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b\n- Robot Arm: arm\n\n# Initial State\n- Layout: blo_c80dc9 sits on top of blo_0c8fa4, and blo_0c8fa4 is sitting on the table. There is nothing on top of blo_c80dc9.\n- Layout: blo_ad722b sits on top of blo_5ce8c5, and blo_5ce8c5 is sitting on the table. There is nothing on top of blo_ad722b.\n- Robot: The robot arm is currently holding nothing.\n\n# Goal State\n- blo_c80dc9 should be on top of blo_0c8fa4.\n- blo_0c8fa4 should be on top of blo_5ce8c5, which should be on top of blo_ad722b, forming a single tower from top to bottom: blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b.\n\n# Optimization Metric\nNone",
+      "overview": {
+        "description": "Merge two stacks into a single target tower.",
+        "initial_state": "Two towers: blo_c80dc9 on blo_0c8fa4 (blo_0c8fa4 on the table) and blo_ad722b on blo_5ce8c5 (blo_5ce8c5 on the table). blo_c80dc9 and blo_ad722b are clear; the hand is empty.",
+        "goal": "blo_c80dc9 on blo_0c8fa4 on blo_5ce8c5 on blo_ad722b (top->bottom: blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b)."
+      },
+      "objects": [
+        {
+          "name": "blo_c80dc9",
+          "kind": "block",
+          "summary": "Block blo_c80dc9.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_0c8fa4",
+          "kind": "block",
+          "summary": "Block blo_0c8fa4.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_5ce8c5",
+          "kind": "block",
+          "summary": "Block blo_5ce8c5.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_ad722b",
+          "kind": "block",
+          "summary": "Block blo_ad722b.",
+          "attributes": {}
+        }
+      ],
+      "optimal_cost": 10,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p05",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA robot arm and four blocks arranged as a single vertical stack on a table.\n\n# Objects\n- Block: blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b\n- Robot Arm: robot_arm\n\n# Initial State\n- Robot arm: The robot arm is currently holding nothing.\n- Layout: From bottom to top, blo_c80dc9 is sitting on the table, blo_0c8fa4 is on top of blo_c80dc9, blo_5ce8c5 is on top of blo_0c8fa4, and blo_ad722b is on top of blo_5ce8c5.\n- Clear surfaces: There is nothing on top of blo_ad722b.\n\n# Goal State\n- blo_c80dc9 should be placed on top of blo_0c8fa4.\n- blo_0c8fa4 should be placed on top of blo_5ce8c5.\n- blo_5ce8c5 should be placed on top of blo_c80dc9.\n\n# Optimization Metric\nNone",
+      "overview": {
+        "description": "The goal configuration requires blo_c80dc9 to be on blo_0c8fa4, blo_0c8fa4 to be on blo_5ce8c5, and blo_5ce8c5 to be on blo_c80dc9.",
+        "initial_state": "Single tower: blo_ad722b on blo_5ce8c5 on blo_0c8fa4 on blo_c80dc9 (blo_c80dc9 on table). blo_ad722b is clear.",
+        "goal": "blo_c80dc9 on blo_0c8fa4, blo_0c8fa4 on blo_5ce8c5, and blo_5ce8c5 on blo_c80dc9."
+      },
+      "objects": [
+        {
+          "name": "blo_c80dc9",
+          "kind": "block",
+          "summary": "Block blo_c80dc9.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_0c8fa4",
+          "kind": "block",
+          "summary": "Block blo_0c8fa4.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_5ce8c5",
+          "kind": "block",
+          "summary": "Block blo_5ce8c5.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_ad722b",
+          "kind": "block",
+          "summary": "Block blo_ad722b.",
+          "attributes": {}
+        }
+      ],
+      "optimal_cost": -1,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p06",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA robot arm with five separate blocks resting on a table.\n\n# Objects\n- Block: blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b, blo_3f7922\n- Robot Arm: single_arm\n\n# Initial State\n- Robot arm: The robot arm is currently holding nothing.\n- Table layout: Blocks blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b, and blo_3f7922 are each sitting directly on the table with nothing on top of them.\n\n# Goal State\n- Build a single tower with blo_c80dc9 at the bottom, blo_0c8fa4 stacked on top of blo_c80dc9, blo_5ce8c5 on top of blo_0c8fa4, blo_ad722b on top of blo_5ce8c5, and blo_3f7922 at the very top.\n\n# Optimization Metric\nNone",
+      "overview": {
+        "description": "Build a single tall tower from individually separated blocks.",
+        "initial_state": "blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b, blo_3f7922 are each on the table and clear; the hand is empty.",
+        "goal": "blo_3f7922 on blo_ad722b on blo_5ce8c5 on blo_0c8fa4 on blo_c80dc9 (top->bottom: blo_3f7922, blo_ad722b, blo_5ce8c5, blo_0c8fa4, blo_c80dc9)."
+      },
+      "objects": [
+        {
+          "name": "blo_c80dc9",
+          "kind": "block",
+          "summary": "Block blo_c80dc9.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_0c8fa4",
+          "kind": "block",
+          "summary": "Block blo_0c8fa4.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_5ce8c5",
+          "kind": "block",
+          "summary": "Block blo_5ce8c5.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_ad722b",
+          "kind": "block",
+          "summary": "Block blo_ad722b.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_3f7922",
+          "kind": "block",
+          "summary": "Block blo_3f7922.",
+          "attributes": {}
+        }
+      ],
+      "optimal_cost": 8,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p07",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA robot arm with five blocks arranged in two small towers on a table.\n\n# Objects\n- Block: blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b, blo_3f7922\n- Robot Arm: robot_arm\n\n# Initial State\n- Tower 1: blo_5ce8c5 is on top of blo_0c8fa4, which is on top of blo_c80dc9. blo_c80dc9 is sitting on the table. There is nothing on top of blo_5ce8c5.\n- Tower 2: blo_3f7922 is on top of blo_ad722b. blo_ad722b is sitting on the table. There is nothing on top of blo_3f7922.\n- The robot arm is currently holding nothing.\n\n# Goal State\n- blo_c80dc9 should be on top of blo_0c8fa4.\n- blo_c80dc9 should be on top of blo_5ce8c5.\n- blo_5ce8c5 should be on top of blo_ad722b.\n- blo_ad722b should be on top of blo_3f7922.\n\n# Optimization Metric\nNone",
+      "overview": {
+        "description": "The goal specifies a configuration where blo_c80dc9 is on blo_0c8fa4, blo_c80dc9 is on blo_5ce8c5, blo_5ce8c5 is on blo_ad722b, and blo_ad722b is on blo_3f7922.",
+        "initial_state": "Two towers: blo_5ce8c5 on blo_0c8fa4 on blo_c80dc9 (blo_c80dc9 on table); blo_3f7922 on blo_ad722b (blo_ad722b on table). blo_5ce8c5 and blo_3f7922 are clear.",
+        "goal": "blo_c80dc9 on blo_0c8fa4 AND blo_c80dc9 on blo_5ce8c5; blo_5ce8c5 on blo_ad722b; blo_ad722b on blo_3f7922."
+      },
+      "objects": [
+        {
+          "name": "blo_c80dc9",
+          "kind": "block",
+          "summary": "Block blo_c80dc9.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_0c8fa4",
+          "kind": "block",
+          "summary": "Block blo_0c8fa4.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_5ce8c5",
+          "kind": "block",
+          "summary": "Block blo_5ce8c5.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_ad722b",
+          "kind": "block",
+          "summary": "Block blo_ad722b.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_3f7922",
+          "kind": "block",
+          "summary": "Block blo_3f7922.",
+          "attributes": {}
+        }
+      ],
+      "optimal_cost": -1,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p08",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA robot arm with five blocks arranged in three small stacks on a table.\n\n# Objects\n- Block: blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b, blo_3f7922\n- Robot: robot_arm\n\n# Initial State\n- Robot arm: The robot arm is holding nothing.\n- Stack 1: Block blo_0c8fa4 sits on top of blo_c80dc9, and blo_c80dc9 is on the table. There is nothing on top of blo_0c8fa4.\n- Stack 2: Block blo_ad722b sits on top of blo_5ce8c5, and blo_5ce8c5 is on the table. There is nothing on top of blo_ad722b.\n- Stack 3: Block blo_3f7922 sits on the table by itself, with nothing on top.\n\n# Goal State\n- From bottom to top, a single tower on the table: blo_3f7922 at the bottom, with blo_c80dc9 on top of it, then blo_0c8fa4 on blo_c80dc9, blo_ad722b on blo_0c8fa4, and blo_5ce8c5 on blo_ad722b.\n\n# Optimization Metric\nNone",
+      "overview": {
+        "description": "Combine multiple stacks into one target tower ordering.",
+        "initial_state": "Three stacks: blo_0c8fa4 on blo_c80dc9 (blo_c80dc9 on the table), blo_ad722b on blo_5ce8c5 (blo_5ce8c5 on the table), and blo_3f7922 alone on the table. blo_0c8fa4, blo_ad722b, blo_3f7922 are clear; the hand is empty.",
+        "goal": "blo_5ce8c5 on blo_ad722b on blo_0c8fa4 on blo_c80dc9 on blo_3f7922 (top->bottom: blo_5ce8c5, blo_ad722b, blo_0c8fa4, blo_c80dc9, blo_3f7922)."
+      },
+      "objects": [
+        {
+          "name": "blo_c80dc9",
+          "kind": "block",
+          "summary": "Block blo_c80dc9.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_0c8fa4",
+          "kind": "block",
+          "summary": "Block blo_0c8fa4.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_5ce8c5",
+          "kind": "block",
+          "summary": "Block blo_5ce8c5.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_ad722b",
+          "kind": "block",
+          "summary": "Block blo_ad722b.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_3f7922",
+          "kind": "block",
+          "summary": "Block blo_3f7922.",
+          "attributes": {}
+        }
+      ],
+      "optimal_cost": 10,
+      "difficulty": "hard"
+    },
+    {
+      "id": "p09",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA single robot arm and six separate blocks resting on a table.\n\n# Objects\n- Block: blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b, blo_3f7922, blo_a0a2fa\n- Robot Arm: robot_arm\n\n# Initial State\n- Robot arm: The robot arm is currently holding nothing.\n- Layout: All six blocks (blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b, blo_3f7922, blo_a0a2fa) are each sitting directly on the table, with nothing on top of any of them.\n\n# Goal State\n- Build a single tower on the table with blo_c80dc9 at the bottom, then blo_0c8fa4 on top of it, then blo_5ce8c5, then blo_ad722b, then blo_3f7922, and blo_a0a2fa at the very top.\n\n# Optimization Metric\nNone",
+      "overview": {
+        "description": "Build a single tall tower from individually separated blocks.",
+        "initial_state": "blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b, blo_3f7922, blo_a0a2fa are each on the table and clear; the hand is empty.",
+        "goal": "blo_a0a2fa on blo_3f7922 on blo_ad722b on blo_5ce8c5 on blo_0c8fa4 on blo_c80dc9 (top->bottom: blo_a0a2fa, blo_3f7922, blo_ad722b, blo_5ce8c5, blo_0c8fa4, blo_c80dc9)."
+      },
+      "objects": [
+        {
+          "name": "blo_c80dc9",
+          "kind": "block",
+          "summary": "Block blo_c80dc9.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_0c8fa4",
+          "kind": "block",
+          "summary": "Block blo_0c8fa4.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_5ce8c5",
+          "kind": "block",
+          "summary": "Block blo_5ce8c5.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_ad722b",
+          "kind": "block",
+          "summary": "Block blo_ad722b.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_3f7922",
+          "kind": "block",
+          "summary": "Block blo_3f7922.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_a0a2fa",
+          "kind": "block",
+          "summary": "Block blo_a0a2fa.",
+          "attributes": {}
+        }
+      ],
+      "optimal_cost": 10,
+      "difficulty": "hard"
+    },
+    {
+      "id": "p10",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA robot arm with seven blocks arranged as two towers on a table.\n\n# Objects\n- Block: blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b, blo_3f7922, blo_a0a2fa, blo_9d2bfe\n\n# Initial State\n- Robot arm: The robot arm is currently holding nothing.\n- Left tower: Block blo_c80dc9 is on the table, blo_0c8fa4 is on top of blo_c80dc9, and blo_5ce8c5 is on top of blo_0c8fa4. There is nothing on top of blo_5ce8c5.\n- Right tower: Block blo_ad722b is on the table, blo_3f7922 is on top of blo_ad722b, blo_a0a2fa is on top of blo_3f7922, and blo_9d2bfe is on top of blo_a0a2fa. There is nothing on top of blo_9d2bfe.\n\n# Goal State\n- Build a single seven-block tower with blo_9d2bfe at the bottom, then blo_a0a2fa on top of it, then blo_3f7922, then blo_ad722b, then blo_5ce8c5, then blo_0c8fa4, and blo_c80dc9 at the top.\n\n# Optimization Metric\nNone",
+      "overview": {
+        "description": "Merge two tall stacks into one target tower ordering.",
+        "initial_state": "Two towers: blo_5ce8c5 on blo_0c8fa4 on blo_c80dc9 (blo_c80dc9 on the table) and blo_9d2bfe on blo_a0a2fa on blo_3f7922 on blo_ad722b (blo_ad722b on the table). blo_5ce8c5 and blo_9d2bfe are clear; the hand is empty.",
+        "goal": "blo_c80dc9 on blo_0c8fa4 on blo_5ce8c5 on blo_ad722b on blo_3f7922 on blo_a0a2fa on blo_9d2bfe (top->bottom: blo_c80dc9, blo_0c8fa4, blo_5ce8c5, blo_ad722b, blo_3f7922, blo_a0a2fa, blo_9d2bfe)."
+      },
+      "objects": [
+        {
+          "name": "blo_c80dc9",
+          "kind": "block",
+          "summary": "Block blo_c80dc9.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_0c8fa4",
+          "kind": "block",
+          "summary": "Block blo_0c8fa4.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_5ce8c5",
+          "kind": "block",
+          "summary": "Block blo_5ce8c5.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_ad722b",
+          "kind": "block",
+          "summary": "Block blo_ad722b.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_3f7922",
+          "kind": "block",
+          "summary": "Block blo_3f7922.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_a0a2fa",
+          "kind": "block",
+          "summary": "Block blo_a0a2fa.",
+          "attributes": {}
+        },
+        {
+          "name": "blo_9d2bfe",
+          "kind": "block",
+          "summary": "Block blo_9d2bfe.",
+          "attributes": {}
+        }
+      ],
+      "optimal_cost": 14,
+      "difficulty": "hard"
+    }
+  ]
+}

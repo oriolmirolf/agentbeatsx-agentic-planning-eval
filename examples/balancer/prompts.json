@@ -1,0 +1,1320 @@
+{
+  "domain_prompt": "DOMAIN BRIEF\n\n# Summary\nThis domain models load balancing across servers in regions. Servers host services and can be powered on or off. Buckets belong to regions and require specific services. You must manage these resources to assign buckets efficiently.\n\n# Object Types\n- Server: A computing node that can process workloads.\n- Region: A physical location where servers and buckets reside.\n- Service: A specific software application required to process a bucket.\n- Bucket: A unit of data workload that needs to be processed.\n\n# World Description\nThe world operates under strict constraints regarding location, power, and capacity:\n1. Topology: Every server and bucket is permanently located in a specific Region. Interactions (like assigning a bucket) can only happen if objects are in the same region.\n2. Resource State: Servers have two states: Online (powered on) or Offline. They also manage a list of active Services. A server can only accept work if it is Online and running the required Service.\n3. Capacity Limits: Every server has a fixed Capacity. The system tracks the current Load (number of buckets assigned). You cannot assign a bucket if the server's Load has reached its Capacity.\n4. Cost: Every action you take increases the global Total Cost by 1.\n\n# Actions\n\n## Action: power-on\n- Parameters: Target Server\n- Requirements: You can only power on a server if it is currently offline.\n- Effects: The server becomes online. This increases the total cost by 1.\n\n## Action: power-off\n- Parameters: Target Server\n- Requirements: To power off a server, it must currently be online. Furthermore, the server must be completely idle (its current load must be 0, meaning no buckets are assigned to it).\n- Effects: The server becomes offline. This increases the total cost by 1.\n\n## Action: start-service\n- Parameters: Target Server, Target Service\n- Requirements: The server must be online. It must not already be running the specified service.\n- Effects: The server begins running the service. This increases the total cost by 1.\n\n## Action: stop-service\n- Parameters: Target Server, Target Service\n- Requirements: The server must be online and must currently be running the specified service.\n- Effects: The server stops running the service. This increases the total cost by 1.\n\n## Action: assign-bucket\n- Parameters: Target Bucket, Target Server, Context Region, Context Service\n- Requirements: This action assigns a workload to a server. For this to be valid:\n  1. The bucket must be currently unassigned.\n  2. The server must be online.\n  3. The bucket and the server must be in the same region.\n  4. The bucket requires a specific service, and the server must be running that exact service.\n  5. The server must have available space (its current load must be strictly less than its capacity).\n- Effects: The bucket is marked as assigned to the server. The server's load count increases by 1. This increases the total cost by 1.\n\n## Action: unassign-bucket\n- Parameters: Target Bucket, Target Server\n- Requirements: You can only unassign a bucket if it is currently assigned to this specific server.\n- Effects: The bucket becomes unassigned. The server's load count decreases by 1. This increases the total cost by 1.",
+  "actions": [
+    {
+      "name": "power-on",
+      "signature": "power-on(SERVER)",
+      "parameters": [
+        {
+          "name": "SERVER",
+          "kind": "server"
+        }
+      ],
+      "preconditions": [
+        "SERVER is currently offline."
+      ],
+      "effects": [
+        "SERVER becomes online."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "power-off",
+      "signature": "power-off(SERVER)",
+      "parameters": [
+        {
+          "name": "SERVER",
+          "kind": "server"
+        }
+      ],
+      "preconditions": [
+        "SERVER is online.",
+        "SERVER has zero load (no buckets assigned to it)."
+      ],
+      "effects": [
+        "SERVER becomes offline."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "start-service",
+      "signature": "start-service(SERVER, SERVICE)",
+      "parameters": [
+        {
+          "name": "SERVER",
+          "kind": "server"
+        },
+        {
+          "name": "SERVICE",
+          "kind": "service"
+        }
+      ],
+      "preconditions": [
+        "SERVER is online.",
+        "SERVER is not currently running SERVICE."
+      ],
+      "effects": [
+        "SERVER runs SERVICE."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "stop-service",
+      "signature": "stop-service(SERVER, SERVICE)",
+      "parameters": [
+        {
+          "name": "SERVER",
+          "kind": "server"
+        },
+        {
+          "name": "SERVICE",
+          "kind": "service"
+        }
+      ],
+      "preconditions": [
+        "SERVER is online.",
+        "SERVER is currently running SERVICE."
+      ],
+      "effects": [
+        "SERVER stops running SERVICE."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "assign-bucket",
+      "signature": "assign-bucket(BUCKET, SERVER, REGION, SERVICE)",
+      "parameters": [
+        {
+          "name": "BUCKET",
+          "kind": "bucket"
+        },
+        {
+          "name": "SERVER",
+          "kind": "server"
+        },
+        {
+          "name": "REGION",
+          "kind": "region"
+        },
+        {
+          "name": "SERVICE",
+          "kind": "service"
+        }
+      ],
+      "preconditions": [
+        "BUCKET is currently unassigned.",
+        "SERVER is online.",
+        "BUCKET belongs to REGION.",
+        "SERVER belongs to REGION.",
+        "BUCKET requires SERVICE.",
+        "SERVER is running SERVICE.",
+        "SERVER has available capacity (load(SERVER) < capacity(SERVER))."
+      ],
+      "effects": [
+        "BUCKET becomes assigned to SERVER.",
+        "BUCKET is no longer unassigned.",
+        "load(SERVER) increases by 1."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "unassign-bucket",
+      "signature": "unassign-bucket(BUCKET, SERVER)",
+      "parameters": [
+        {
+          "name": "BUCKET",
+          "kind": "bucket"
+        },
+        {
+          "name": "SERVER",
+          "kind": "server"
+        }
+      ],
+      "preconditions": [
+        "BUCKET is currently assigned to SERVER."
+      ],
+      "effects": [
+        "BUCKET becomes unassigned.",
+        "BUCKET is no longer assigned to SERVER.",
+        "load(SERVER) decreases by 1."
+      ],
+      "cost": 1
+    }
+  ],
+  "problems": [
+    {
+      "id": "p01",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nTwo online servers in the EU West region run the Search service; two buckets are already assigned (one to each server) and one bucket is unassigned.\n\n# Objects\n- Region: eu_west\n- Service: search\n- Server: s1_eu, s2_eu\n- Bucket: b1, b2, b3\n\n# Initial State\n- Region eu_west: Servers s1_eu and s2_eu are located here. Buckets b1, b2, and b3 are also here.\n- Server s1_eu: Powered on, running the Search service, capacity 3, current load 1; it is processing bucket b1.\n- Server s2_eu: Powered on, running the Search service, capacity 3, current load 1; it is processing bucket b2.\n- Buckets: b3 requires the Search service and is not assigned to any server.\n\n# Goal State\n- All three buckets (b1, b2, b3) are processed by server s1_eu in EU West.\n- Server s2_eu is powered off while s1_eu remains powered on.\n\n# Optimization Metric\nMinimize total cost",
+      "overview": {
+        "description": "Consolidate traffic in eu_west onto a single search-capable server and decommission the other server safely.",
+        "initial_state": "Two online servers (s1_eu, s2_eu) in eu_west running search with capacity 3 each. b1 assigned to s1_eu, b2 assigned to s2_eu, b3 unassigned.",
+        "goal": "All buckets (b1, b2, b3) assigned to online eu_west servers that run search; traffic consolidated onto one server if possible; s2_eu powered off with zero load."
+      },
+      "objects": [
+        {
+          "name": "eu_west",
+          "kind": "region",
+          "summary": "EU West region.",
+          "attributes": {}
+        },
+        {
+          "name": "search",
+          "kind": "service",
+          "summary": "Search service.",
+          "attributes": {}
+        },
+        {
+          "name": "s1_eu",
+          "kind": "server",
+          "summary": "Server s1 in eu_west.",
+          "attributes": {
+            "region": "eu_west",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "search"
+            ]
+          }
+        },
+        {
+          "name": "s2_eu",
+          "kind": "server",
+          "summary": "Server s2 in eu_west.",
+          "attributes": {
+            "region": "eu_west",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "search"
+            ]
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bucket",
+          "summary": "Traffic bucket b1.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "search",
+            "initial_assignment": "s1_eu"
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bucket",
+          "summary": "Traffic bucket b2.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "search",
+            "initial_assignment": "s2_eu"
+          }
+        },
+        {
+          "name": "b3",
+          "kind": "bucket",
+          "summary": "Traffic bucket b3.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "search",
+            "initial_assignment": "unassigned"
+          }
+        }
+      ],
+      "optimal_cost": 4,
+      "difficulty": "Easy"
+    },
+    {
+      "id": "p02",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nTwo online servers in the US East region need to host three data buckets that require specific services.\n\n# Objects\n- Regions: us_east\n- Services: payments, search\n- Servers: s1_us, s2_us\n- Buckets: b1, b2, b3\n\n# Initial State\n- Region and placement: Both servers (s1_us, s2_us) and all buckets (b1, b2, b3) are located in the US East region.\n- Server status and services: s1_us is powered on and running the payments service; s2_us is powered on and running the search service.\n- Capacity and load: Each server can handle up to 3 buckets and is currently handling 0.\n- Buckets: b1 and b2 require the payments service; b3 requires the search service. All three buckets are currently unassigned.\n\n# Goal State\n- Bucket b1 is assigned to server s1_us.\n- Bucket b2 is assigned to server s1_us.\n- Bucket b3 is assigned to server s2_us.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Assign unassigned buckets in us_east to servers that already run the required services without exceeding capacity.",
+        "initial_state": "Two online servers in us_east: s1_us runs payments, s2_us runs search, capacity 3 each. All buckets (b1, b2, b3) unassigned.",
+        "goal": "b1 and b2 assigned to a us_east server running payments; b3 assigned to a us_east server running search; capacities respected."
+      },
+      "objects": [
+        {
+          "name": "us_east",
+          "kind": "region",
+          "summary": "US East region.",
+          "attributes": {}
+        },
+        {
+          "name": "payments",
+          "kind": "service",
+          "summary": "Payments service.",
+          "attributes": {}
+        },
+        {
+          "name": "search",
+          "kind": "service",
+          "summary": "Search service.",
+          "attributes": {}
+        },
+        {
+          "name": "s1_us",
+          "kind": "server",
+          "summary": "Payments server in us_east.",
+          "attributes": {
+            "region": "us_east",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "payments"
+            ]
+          }
+        },
+        {
+          "name": "s2_us",
+          "kind": "server",
+          "summary": "Search server in us_east.",
+          "attributes": {
+            "region": "us_east",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "search"
+            ]
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bucket",
+          "summary": "Payments bucket b1.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "payments",
+            "initial_assignment": "unassigned"
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bucket",
+          "summary": "Payments bucket b2.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "payments",
+            "initial_assignment": "unassigned"
+          }
+        },
+        {
+          "name": "b3",
+          "kind": "bucket",
+          "summary": "Search bucket b3.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "search",
+            "initial_assignment": "unassigned"
+          }
+        }
+      ],
+      "optimal_cost": 3,
+      "difficulty": "Easy"
+    },
+    {
+      "id": "p03",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA single online server in the ap_south region with two data buckets in the same region, each needing different services.\n\n# Objects\n- Regions: ap_south\n- Services: analytics, search\n- Servers: s1_ap\n- Buckets: b1, b2\n\n# Initial State\n- Region ap_south: Contains server s1_ap and buckets b1 and b2.\n- Server s1_ap: Powered on, currently running the search service, capacity 1 with no workload assigned.\n- Buckets: b1 requires the analytics service and is unassigned; b2 requires the search service and is unassigned.\n\n# Goal State\n- Bucket b1 is assigned to server s1_ap.\n- Bucket b2 is assigned to server s1_ap.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "The goal requires assigning two distinct buckets to the single available server s1_ap.",
+        "initial_state": "One server s1_ap (capacity 1) is online. Two buckets b1 and b2 are unassigned.",
+        "goal": "b1 and b2 must both be assigned to s1_ap."
+      },
+      "objects": [
+        {
+          "name": "ap_south",
+          "kind": "region",
+          "summary": "AP South region.",
+          "attributes": {}
+        },
+        {
+          "name": "analytics",
+          "kind": "service",
+          "summary": "Analytics service.",
+          "attributes": {}
+        },
+        {
+          "name": "search",
+          "kind": "service",
+          "summary": "Search service.",
+          "attributes": {}
+        },
+        {
+          "name": "s1_ap",
+          "kind": "server",
+          "summary": "Single server in ap_south.",
+          "attributes": {
+            "region": "ap_south",
+            "capacity": 1,
+            "initial_online": true,
+            "initial_services": [
+              "search"
+            ]
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bucket",
+          "summary": "Analytics bucket b1.",
+          "attributes": {
+            "region": "ap_south",
+            "requires_service": "analytics",
+            "initial_assignment": "unassigned"
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bucket",
+          "summary": "Search bucket b2.",
+          "attributes": {
+            "region": "ap_south",
+            "requires_service": "search",
+            "initial_assignment": "unassigned"
+          }
+        }
+      ],
+      "optimal_cost": -1,
+      "difficulty": "Easy"
+    },
+    {
+      "id": "p04",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nThree servers and four data buckets are all in the EU West region; two servers are online running the web service with all buckets currently split between them, and one server is powered off.\n\n# Objects\n- Region: eu_west\n- Service: web\n- Server: s1_eu, s2_eu, s3_eu\n- Bucket: b1, b2, b3, b4\n\n# Initial State\n- EU West region: All servers (s1_eu, s2_eu, s3_eu) and all buckets (b1\u2013b4) are located here.\n- Servers and services: s1_eu and s2_eu are powered on and running the web service; s3_eu is powered off. Each server has capacity 2.\n- Bucket placement and load: s1_eu is at full load with b1 and b2 assigned. s2_eu is at full load with b3 and b4 assigned. s3_eu has no buckets assigned.\n\n# Goal State\n- Buckets b1 and b2 remain on server s1_eu.\n- Buckets b3 and b4 are moved to server s3_eu.\n- Server s1_eu stays powered on, server s3_eu is powered on, and server s2_eu is powered off.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Introduce capacity using s3_eu to drain s2_eu and power it off while keeping all web buckets served and never exceeding per-server capacity.",
+        "initial_state": "In eu_west: s1_eu and s2_eu are online running web with capacity 2 each and both are full (2 buckets each). s3_eu is offline. b1,b2 on s1_eu; b3,b4 on s2_eu.",
+        "goal": "All four buckets served by web in eu_west; s2_eu drained and powered off with load 0; capacities respected at every step."
+      },
+      "objects": [
+        {
+          "name": "eu_west",
+          "kind": "region",
+          "summary": "EU West region.",
+          "attributes": {}
+        },
+        {
+          "name": "web",
+          "kind": "service",
+          "summary": "Web service.",
+          "attributes": {}
+        },
+        {
+          "name": "s1_eu",
+          "kind": "server",
+          "summary": "Online web server s1_eu.",
+          "attributes": {
+            "region": "eu_west",
+            "capacity": 2,
+            "initial_online": true,
+            "initial_services": [
+              "web"
+            ]
+          }
+        },
+        {
+          "name": "s2_eu",
+          "kind": "server",
+          "summary": "Online web server s2_eu to be decommissioned.",
+          "attributes": {
+            "region": "eu_west",
+            "capacity": 2,
+            "initial_online": true,
+            "initial_services": [
+              "web"
+            ]
+          }
+        },
+        {
+          "name": "s3_eu",
+          "kind": "server",
+          "summary": "Offline server that can be powered on to add capacity.",
+          "attributes": {
+            "region": "eu_west",
+            "capacity": 2,
+            "initial_online": false,
+            "initial_services": []
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bucket",
+          "summary": "Web bucket b1.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "web",
+            "initial_assignment": "s1_eu"
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bucket",
+          "summary": "Web bucket b2.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "web",
+            "initial_assignment": "s1_eu"
+          }
+        },
+        {
+          "name": "b3",
+          "kind": "bucket",
+          "summary": "Web bucket b3.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "web",
+            "initial_assignment": "s2_eu"
+          }
+        },
+        {
+          "name": "b4",
+          "kind": "bucket",
+          "summary": "Web bucket b4.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "web",
+            "initial_assignment": "s2_eu"
+          }
+        }
+      ],
+      "optimal_cost": 7,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p05",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nServers in two regions host a search service and manage four data buckets, with some buckets assigned to the wrong place or unassigned.\n\n# Objects\n- Region: us_east, eu_west\n- Service: search\n- Server: s1_us, s2_eu, s3_eu\n- Bucket: b1, b2, b3, b4\n\n# Initial State\n- Regions and servers: s1_us is in us_east; s2_eu and s3_eu are in eu_west.\n- Power and services: s1_us and s2_eu are powered on; s3_eu is powered off. s1_us and s2_eu are running the search service.\n- Buckets and placement:\n  - In us_east: b1 and b2. b1 is assigned to s1_us; b2 is not assigned.\n  - In eu_west: b3 and b4. b3 is assigned to s1_us (a server in a different region); b4 is not assigned.\n- Capacity and load: s1_us capacity 3 with load 2; s2_eu capacity 2 with load 0; s3_eu capacity 2 with load 0.\n\n# Goal State\n- In us_east, both b1 and b2 are assigned to s1_us.\n- In eu_west, both b3 and b4 are assigned to s2_eu.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Fix cross-region misrouting and assign all buckets to correct-region search servers while preferring s2_eu for eu_west if capacity allows.",
+        "initial_state": "s1_us (us_east) online runs search cap 3; s2_eu (eu_west) online runs search cap 2; s3_eu (eu_west) offline. b1 on s1_us, b3 incorrectly on s1_us, b2 and b4 unassigned.",
+        "goal": "Each bucket served in its own region by a server running search; prefer placing eu_west buckets on s2_eu if within cap; never exceed capacity."
+      },
+      "objects": [
+        {
+          "name": "us_east",
+          "kind": "region",
+          "summary": "US East region.",
+          "attributes": {}
+        },
+        {
+          "name": "eu_west",
+          "kind": "region",
+          "summary": "EU West region.",
+          "attributes": {}
+        },
+        {
+          "name": "search",
+          "kind": "service",
+          "summary": "Search service.",
+          "attributes": {}
+        },
+        {
+          "name": "s1_us",
+          "kind": "server",
+          "summary": "Search server in us_east.",
+          "attributes": {
+            "region": "us_east",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "search"
+            ]
+          }
+        },
+        {
+          "name": "s2_eu",
+          "kind": "server",
+          "summary": "Search server in eu_west.",
+          "attributes": {
+            "region": "eu_west",
+            "capacity": 2,
+            "initial_online": true,
+            "initial_services": [
+              "search"
+            ]
+          }
+        },
+        {
+          "name": "s3_eu",
+          "kind": "server",
+          "summary": "Offline server in eu_west.",
+          "attributes": {
+            "region": "eu_west",
+            "capacity": 2,
+            "initial_online": false,
+            "initial_services": []
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bucket",
+          "summary": "us_east search bucket b1.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "search",
+            "initial_assignment": "s1_us"
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bucket",
+          "summary": "us_east search bucket b2.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "search",
+            "initial_assignment": "unassigned"
+          }
+        },
+        {
+          "name": "b3",
+          "kind": "bucket",
+          "summary": "eu_west search bucket b3 (misrouted).",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "search",
+            "initial_assignment": "s1_us"
+          }
+        },
+        {
+          "name": "b4",
+          "kind": "bucket",
+          "summary": "eu_west search bucket b4.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "search",
+            "initial_assignment": "unassigned"
+          }
+        }
+      ],
+      "optimal_cost": 4,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p06",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nTwo servers in the US East region host services and handle four data buckets, with one bucket unassigned.\n\n# Objects\n- Region: us_east\n- Service: payments, search\n- Server: s1_us, s2_us\n- Bucket: b1, b2, b3, b4\n\n# Initial State\n- Region layout: Both servers and all buckets are located in the US East region.\n- Server s1_us: Powered on, running the Payments service, capacity 4 with 2 buckets currently assigned (b1, b2).\n- Server s2_us: Powered on, running the Search service, capacity 3 with 1 bucket currently assigned (b3).\n- Buckets: b1 and b2 require Payments and are on s1_us; b3 requires Search and is on s2_us; b4 requires Search and is currently unassigned.\n\n# Goal State\n- All four buckets (b1, b2, b3, b4) are assigned to server s1_us.\n- Server s1_us remains powered on, and server s2_us is powered off.\n\n# Optimization Metric\nMinimize total cost",
+      "overview": {
+        "description": "Enable search on s1_us, migrate all search buckets from s2_us to s1_us, then drain and power off s2_us without exceeding capacity.",
+        "initial_state": "us_east: s1_us online runs payments cap 3 with b1,b2 assigned; s2_us online runs search cap 3 with b3 assigned; b4 unassigned and requires search.",
+        "goal": "All buckets served in us_east by correct service; final state has all buckets on s1_us only; s2_us powered off with load 0; capacity respected throughout."
+      },
+      "objects": [
+        {
+          "name": "us_east",
+          "kind": "region",
+          "summary": "US East region.",
+          "attributes": {}
+        },
+        {
+          "name": "payments",
+          "kind": "service",
+          "summary": "Payments service.",
+          "attributes": {}
+        },
+        {
+          "name": "search",
+          "kind": "service",
+          "summary": "Search service.",
+          "attributes": {}
+        },
+        {
+          "name": "s1_us",
+          "kind": "server",
+          "summary": "Payments server to become consolidated host.",
+          "attributes": {
+            "region": "us_east",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "payments"
+            ]
+          }
+        },
+        {
+          "name": "s2_us",
+          "kind": "server",
+          "summary": "Search server to be drained and powered off.",
+          "attributes": {
+            "region": "us_east",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "search"
+            ]
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bucket",
+          "summary": "Payments bucket b1.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "payments",
+            "initial_assignment": "s1_us"
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bucket",
+          "summary": "Payments bucket b2.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "payments",
+            "initial_assignment": "s1_us"
+          }
+        },
+        {
+          "name": "b3",
+          "kind": "bucket",
+          "summary": "Search bucket b3.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "search",
+            "initial_assignment": "s2_us"
+          }
+        },
+        {
+          "name": "b4",
+          "kind": "bucket",
+          "summary": "Search bucket b4.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "search",
+            "initial_assignment": "unassigned"
+          }
+        }
+      ],
+      "optimal_cost": 5,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p07",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nThree online servers in the EU Central region are running a web service and handling five data buckets.\n\n# Objects\n- Region: eu_central\n- Service: web\n- Server: s1_eu, s2_eu, s3_eu\n- Bucket: b1, b2, b3, b4, b5\n\n# Initial State\n- Region and services: All servers and all buckets are in the EU Central region. Every server is running the web service and is powered on.\n- Server loads and capacity: Each server has capacity for 3 buckets. s1_eu is full with 3 buckets; s2_eu has 1 bucket; s3_eu has 1 bucket.\n- Bucket placement: b1, b2, and b3 are on s1_eu; b4 is on s2_eu; b5 is on s3_eu.\n\n# Goal State\n- b1, b2, and b3 remain on s1_eu.\n- b4 and b5 are both on s2_eu.\n- s1_eu and s2_eu stay powered on.\n- s3_eu is powered off.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Redistribute web buckets in eu_central to drain s3_eu and power it off while keeping all buckets served and respecting capacity constraints.",
+        "initial_state": "eu_central: s1_eu,s2_eu,s3_eu online running web cap 3 each. s1_eu hosts b1,b2,b3 (full). s2_eu hosts b4. s3_eu hosts b5.",
+        "goal": "All five buckets served by web in eu_central; s3_eu drained and powered off with load 0; other servers never exceed capacity 3."
+      },
+      "objects": [
+        {
+          "name": "eu_central",
+          "kind": "region",
+          "summary": "EU Central region.",
+          "attributes": {}
+        },
+        {
+          "name": "web",
+          "kind": "service",
+          "summary": "Web service.",
+          "attributes": {}
+        },
+        {
+          "name": "s1_eu",
+          "kind": "server",
+          "summary": "Online web server s1_eu.",
+          "attributes": {
+            "region": "eu_central",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "web"
+            ]
+          }
+        },
+        {
+          "name": "s2_eu",
+          "kind": "server",
+          "summary": "Online web server s2_eu.",
+          "attributes": {
+            "region": "eu_central",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "web"
+            ]
+          }
+        },
+        {
+          "name": "s3_eu",
+          "kind": "server",
+          "summary": "Online web server to be decommissioned.",
+          "attributes": {
+            "region": "eu_central",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "web"
+            ]
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bucket",
+          "summary": "Web bucket b1.",
+          "attributes": {
+            "region": "eu_central",
+            "requires_service": "web",
+            "initial_assignment": "s1_eu"
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bucket",
+          "summary": "Web bucket b2.",
+          "attributes": {
+            "region": "eu_central",
+            "requires_service": "web",
+            "initial_assignment": "s1_eu"
+          }
+        },
+        {
+          "name": "b3",
+          "kind": "bucket",
+          "summary": "Web bucket b3.",
+          "attributes": {
+            "region": "eu_central",
+            "requires_service": "web",
+            "initial_assignment": "s1_eu"
+          }
+        },
+        {
+          "name": "b4",
+          "kind": "bucket",
+          "summary": "Web bucket b4.",
+          "attributes": {
+            "region": "eu_central",
+            "requires_service": "web",
+            "initial_assignment": "s2_eu"
+          }
+        },
+        {
+          "name": "b5",
+          "kind": "bucket",
+          "summary": "Web bucket b5.",
+          "attributes": {
+            "region": "eu_central",
+            "requires_service": "web",
+            "initial_assignment": "s3_eu"
+          }
+        }
+      ],
+      "optimal_cost": 3,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p08",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA load-balancing setup with servers in two regions, hosting services and handling data buckets.\n\n# Objects\n- Regions: us_east, eu_west\n- Services: search, ads\n- Servers: s1_us, s2_us, s3_eu, s4_eu\n- Buckets: b1, b2, b3, b4, b5, b6\n\n# Initial State\n- us_east region:\n  - Servers: s1_us and s2_us are powered on. s1_us runs the search service; s2_us runs both search and ads. s1_us has capacity 3 with load 2; s2_us has capacity 3 with load 2.\n  - Buckets: b1 and b2 require search; b3 requires ads. b1 is assigned to s1_us. b2 and b3 are assigned to s2_us. b1, b2, b3 all reside in us_east.\n- eu_west region:\n  - Servers: s3_eu is powered on and runs the search service with capacity 2 and load 0. s4_eu is powered off with capacity 3 and load 0.\n  - Buckets: b4 and b5 require search; b6 requires ads. b4 is currently assigned to s1_us in the other region. b5 and b6 are unassigned. b4, b5, b6 all reside in eu_west.\n\n# Goal State\n- In us_east: b1, b2, and b3 are all assigned to s2_us, and s2_us remains powered on. s1_us is powered off.\n- In eu_west: b4, b5, and b6 are all assigned to s3_eu, and s3_eu remains powered on.\n\n# Optimization Metric\nMinimize total cost",
+      "overview": {
+        "description": "The goal involves consolidating specific buckets onto designated servers: buckets b4, b5, and b6 must be assigned to s3_eu, and b1, b2, b3 to s2_us.",
+        "initial_state": "us_east: s1_us (cap 3), s2_us (cap 3). eu_west: s3_eu (cap 2). b4, b5, b6 are eu_west buckets.",
+        "goal": "Assign b4, b5, b6 to s3_eu; assign b1, b2, b3 to s2_us; decommission s1_us."
+      },
+      "objects": [
+        {
+          "name": "us_east",
+          "kind": "region",
+          "summary": "US East region.",
+          "attributes": {}
+        },
+        {
+          "name": "eu_west",
+          "kind": "region",
+          "summary": "EU West region.",
+          "attributes": {}
+        },
+        {
+          "name": "search",
+          "kind": "service",
+          "summary": "Search service.",
+          "attributes": {}
+        },
+        {
+          "name": "ads",
+          "kind": "service",
+          "summary": "Ads service.",
+          "attributes": {}
+        },
+        {
+          "name": "s1_us",
+          "kind": "server",
+          "summary": "Server to be decommissioned.",
+          "attributes": {
+            "region": "us_east",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "search"
+            ]
+          }
+        },
+        {
+          "name": "s2_us",
+          "kind": "server",
+          "summary": "Target server for us_east buckets.",
+          "attributes": {
+            "region": "us_east",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "search",
+              "ads"
+            ]
+          }
+        },
+        {
+          "name": "s3_eu",
+          "kind": "server",
+          "summary": "Target server for eu_west buckets.",
+          "attributes": {
+            "region": "eu_west",
+            "capacity": 2,
+            "initial_online": true,
+            "initial_services": [
+              "search"
+            ]
+          }
+        },
+        {
+          "name": "s4_eu",
+          "kind": "server",
+          "summary": "Offline server in eu_west.",
+          "attributes": {
+            "region": "eu_west",
+            "capacity": 3,
+            "initial_online": false,
+            "initial_services": []
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bucket",
+          "summary": "us_east search bucket b1.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "search",
+            "initial_assignment": "s1_us"
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bucket",
+          "summary": "us_east search bucket b2.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "search",
+            "initial_assignment": "s2_us"
+          }
+        },
+        {
+          "name": "b3",
+          "kind": "bucket",
+          "summary": "us_east ads bucket b3.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "ads",
+            "initial_assignment": "s2_us"
+          }
+        },
+        {
+          "name": "b4",
+          "kind": "bucket",
+          "summary": "eu_west search bucket b4.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "search",
+            "initial_assignment": "s1_us"
+          }
+        },
+        {
+          "name": "b5",
+          "kind": "bucket",
+          "summary": "eu_west search bucket b5.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "search",
+            "initial_assignment": "unassigned"
+          }
+        },
+        {
+          "name": "b6",
+          "kind": "bucket",
+          "summary": "eu_west ads bucket b6.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "ads",
+            "initial_assignment": "unassigned"
+          }
+        }
+      ],
+      "optimal_cost": -1,
+      "difficulty": "Hard"
+    },
+    {
+      "id": "p09",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nServers in two regions host specific services, with several data buckets assigned\u2014some to the wrong region\u2014and one server powered off.\n\n# Objects\n- Regions: us_east, ap_south\n- Services: payments, search, analytics\n- Servers: s1_us, s2_us, s3_ap, s4_ap\n- Buckets: b1, b2, b3, b4, b5, b6, b7\n\n# Initial State\n- Regions and power:\n  - In us_east: servers s1_us and s2_us are powered on. Buckets b1, b2, b3, b4, b5 are located here.\n  - In ap_south: server s3_ap is powered on and s4_ap is powered off. Buckets b6 and b7 are located here.\n- Server capabilities and capacity:\n  - s1_us (capacity 4) runs payments and search; it is carrying 3 buckets.\n  - s2_us (capacity 2) runs analytics; it is carrying 2 buckets (full).\n  - s3_ap (capacity 3) runs search; it is carrying 1 bucket.\n  - s4_ap (capacity 3) is powered off and carrying nothing.\n- Bucket assignments:\n  - In us_east: b1 (needs payments) is on s1_us; b4 (needs search) is on s1_us; b2 (needs payments) is on s2_us; b3 (needs analytics) is on s2_us; b5 (needs search) is on s3_ap (assigned to a server in a different region).\n  - In ap_south: b6 (needs search) is unassigned; b7 (needs payments) is on s1_us (assigned to a server in a different region).\n\n# Goal State\n- In us_east: b1, b2, b4, and b5 are handled by s1_us; b3 is handled by s2_us.\n- In ap_south: b6 and b7 are handled by s3_ap.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Fix misrouted buckets across us_east and ap_south, ensure payments capability exists in ap_south, keep analytics only where needed, and rebalance so no server hosts more than 3 buckets in the final state.",
+        "initial_state": "us_east: s1_us online runs payments+search cap 4; s2_us online runs analytics cap 2 and is full. ap_south: s3_ap online runs search cap 3; s4_ap offline. b1,b4 on s1_us; b2,b3 on s2_us; b5 misrouted on s3_ap; b6 unassigned; b7 misrouted on s1_us.",
+        "goal": "All buckets served in correct region by correct service; payments available in ap_south via some server running payments; analytics only where needed for us_east; final: no server hosts >3 buckets; capacity respected throughout."
+      },
+      "objects": [
+        {
+          "name": "us_east",
+          "kind": "region",
+          "summary": "US East region.",
+          "attributes": {}
+        },
+        {
+          "name": "ap_south",
+          "kind": "region",
+          "summary": "AP South region.",
+          "attributes": {}
+        },
+        {
+          "name": "payments",
+          "kind": "service",
+          "summary": "Payments service.",
+          "attributes": {}
+        },
+        {
+          "name": "search",
+          "kind": "service",
+          "summary": "Search service.",
+          "attributes": {}
+        },
+        {
+          "name": "analytics",
+          "kind": "service",
+          "summary": "Analytics service.",
+          "attributes": {}
+        },
+        {
+          "name": "s1_us",
+          "kind": "server",
+          "summary": "us_east server running payments and search.",
+          "attributes": {
+            "region": "us_east",
+            "capacity": 4,
+            "initial_online": true,
+            "initial_services": [
+              "payments",
+              "search"
+            ]
+          }
+        },
+        {
+          "name": "s2_us",
+          "kind": "server",
+          "summary": "us_east analytics server (capacity 2).",
+          "attributes": {
+            "region": "us_east",
+            "capacity": 2,
+            "initial_online": true,
+            "initial_services": [
+              "analytics"
+            ]
+          }
+        },
+        {
+          "name": "s3_ap",
+          "kind": "server",
+          "summary": "ap_south search server.",
+          "attributes": {
+            "region": "ap_south",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "search"
+            ]
+          }
+        },
+        {
+          "name": "s4_ap",
+          "kind": "server",
+          "summary": "ap_south offline server (may be powered on/configured).",
+          "attributes": {
+            "region": "ap_south",
+            "capacity": 3,
+            "initial_online": false,
+            "initial_services": []
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bucket",
+          "summary": "us_east payments bucket b1.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "payments",
+            "initial_assignment": "s1_us"
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bucket",
+          "summary": "us_east payments bucket b2.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "payments",
+            "initial_assignment": "s2_us"
+          }
+        },
+        {
+          "name": "b3",
+          "kind": "bucket",
+          "summary": "us_east analytics bucket b3.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "analytics",
+            "initial_assignment": "s2_us"
+          }
+        },
+        {
+          "name": "b4",
+          "kind": "bucket",
+          "summary": "us_east search bucket b4.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "search",
+            "initial_assignment": "s1_us"
+          }
+        },
+        {
+          "name": "b5",
+          "kind": "bucket",
+          "summary": "us_east search bucket b5 (misrouted initially).",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "search",
+            "initial_assignment": "s3_ap"
+          }
+        },
+        {
+          "name": "b6",
+          "kind": "bucket",
+          "summary": "ap_south search bucket b6.",
+          "attributes": {
+            "region": "ap_south",
+            "requires_service": "search",
+            "initial_assignment": "unassigned"
+          }
+        },
+        {
+          "name": "b7",
+          "kind": "bucket",
+          "summary": "ap_south payments bucket b7 (misrouted initially).",
+          "attributes": {
+            "region": "ap_south",
+            "requires_service": "payments",
+            "initial_assignment": "s1_us"
+          }
+        }
+      ],
+      "optimal_cost": 8,
+      "difficulty": "Hard"
+    },
+    {
+      "id": "p10",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA multi-region server setup where buckets of work must run on online servers in the same region with the required services and within capacity.\n\n# Objects\n- Regions: us_east, eu_west, ap_south\n- Services: web, api\n- Servers: s1_us, s2_us, s3_eu, s4_eu, s5_ap, s6_ap\n- Buckets: b1, b2, b3, b4, b5, b6, b7, b8, b9\n\n# Initial State\n- US-East region:\n  - Servers: s1_us (online, capacity 3, load 3, running web and api), s2_us (online, capacity 3, load 0, running web).\n  - Buckets: b1 (needs web, assigned to s1_us), b2 (needs web, assigned to s1_us), b3 (needs api, assigned to s1_us).\n- EU-West region:\n  - Servers: s3_eu (online, capacity 3, load 2, running web and api), s4_eu (offline, capacity 3, load 0).\n  - Buckets: b4 (needs web, assigned to s3_eu), b5 (needs api, assigned to s3_eu), b6 (needs api, unassigned).\n- AP-South region:\n  - Servers: s5_ap (online, capacity 3, load 1, running web), s6_ap (offline, capacity 3, load 0).\n  - Buckets: b7 (needs web, assigned to s5_ap), b8 (needs api, unassigned), b9 (needs api, unassigned).\n\n# Goal State\n- In US-East, only s1_us is online; s2_us is powered off. Buckets b1, b2, and b3 remain on s1_us.\n- In EU-West, only s3_eu is online; s4_eu is powered off. Buckets b4, b5, and b6 are all on s3_eu.\n- In AP-South, only s5_ap is online; s6_ap is powered off. Buckets b7, b8, and b9 are all on s5_ap.\n\n# Optimization Metric\nMinimize total cost",
+      "overview": {
+        "description": "Consolidate traffic so each region ends with exactly one online server that runs required services, assigning all buckets correctly without exceeding capacity.",
+        "initial_state": "us_east: s1_us online runs web+api full with b1,b2,b3; s2_us online runs web only. eu_west: s3_eu online runs web+api with b4,b5; s4_eu offline. ap_south: s5_ap online runs web only with b7; s6_ap offline. b6,b8,b9 unassigned.",
+        "goal": "All buckets served in correct region by servers running required service; final state has exactly one online server per region; no server ever hosts >3 buckets."
+      },
+      "objects": [
+        {
+          "name": "us_east",
+          "kind": "region",
+          "summary": "US East region.",
+          "attributes": {}
+        },
+        {
+          "name": "eu_west",
+          "kind": "region",
+          "summary": "EU West region.",
+          "attributes": {}
+        },
+        {
+          "name": "ap_south",
+          "kind": "region",
+          "summary": "AP South region.",
+          "attributes": {}
+        },
+        {
+          "name": "web",
+          "kind": "service",
+          "summary": "Web service.",
+          "attributes": {}
+        },
+        {
+          "name": "api",
+          "kind": "service",
+          "summary": "API service.",
+          "attributes": {}
+        },
+        {
+          "name": "s1_us",
+          "kind": "server",
+          "summary": "us_east server running web+api.",
+          "attributes": {
+            "region": "us_east",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "web",
+              "api"
+            ]
+          }
+        },
+        {
+          "name": "s2_us",
+          "kind": "server",
+          "summary": "us_east server running web only.",
+          "attributes": {
+            "region": "us_east",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "web"
+            ]
+          }
+        },
+        {
+          "name": "s3_eu",
+          "kind": "server",
+          "summary": "eu_west server running web+api.",
+          "attributes": {
+            "region": "eu_west",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "web",
+              "api"
+            ]
+          }
+        },
+        {
+          "name": "s4_eu",
+          "kind": "server",
+          "summary": "eu_west offline server (may be powered on/configured).",
+          "attributes": {
+            "region": "eu_west",
+            "capacity": 3,
+            "initial_online": false,
+            "initial_services": []
+          }
+        },
+        {
+          "name": "s5_ap",
+          "kind": "server",
+          "summary": "ap_south server running web only.",
+          "attributes": {
+            "region": "ap_south",
+            "capacity": 3,
+            "initial_online": true,
+            "initial_services": [
+              "web"
+            ]
+          }
+        },
+        {
+          "name": "s6_ap",
+          "kind": "server",
+          "summary": "ap_south offline server (may be powered on/configured).",
+          "attributes": {
+            "region": "ap_south",
+            "capacity": 3,
+            "initial_online": false,
+            "initial_services": []
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bucket",
+          "summary": "us_east web bucket b1.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "web",
+            "initial_assignment": "s1_us"
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bucket",
+          "summary": "us_east web bucket b2.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "web",
+            "initial_assignment": "s1_us"
+          }
+        },
+        {
+          "name": "b3",
+          "kind": "bucket",
+          "summary": "us_east api bucket b3.",
+          "attributes": {
+            "region": "us_east",
+            "requires_service": "api",
+            "initial_assignment": "s1_us"
+          }
+        },
+        {
+          "name": "b4",
+          "kind": "bucket",
+          "summary": "eu_west web bucket b4.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "web",
+            "initial_assignment": "s3_eu"
+          }
+        },
+        {
+          "name": "b5",
+          "kind": "bucket",
+          "summary": "eu_west api bucket b5.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "api",
+            "initial_assignment": "s3_eu"
+          }
+        },
+        {
+          "name": "b6",
+          "kind": "bucket",
+          "summary": "eu_west api bucket b6.",
+          "attributes": {
+            "region": "eu_west",
+            "requires_service": "api",
+            "initial_assignment": "unassigned"
+          }
+        },
+        {
+          "name": "b7",
+          "kind": "bucket",
+          "summary": "ap_south web bucket b7.",
+          "attributes": {
+            "region": "ap_south",
+            "requires_service": "web",
+            "initial_assignment": "s5_ap"
+          }
+        },
+        {
+          "name": "b8",
+          "kind": "bucket",
+          "summary": "ap_south api bucket b8.",
+          "attributes": {
+            "region": "ap_south",
+            "requires_service": "api",
+            "initial_assignment": "unassigned"
+          }
+        },
+        {
+          "name": "b9",
+          "kind": "bucket",
+          "summary": "ap_south api bucket b9.",
+          "attributes": {
+            "region": "ap_south",
+            "requires_service": "api",
+            "initial_assignment": "unassigned"
+          }
+        }
+      ],
+      "optimal_cost": 5,
+      "difficulty": "Hard"
+    }
+  ]
+}

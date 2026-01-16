@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  green: # Container name will be 'green'
+    build: .
+    image: symbolic-oracle
+    ports:
+      - "8000:8000"
+    environment:
+      - GREEN_AGENT_URL=http://green:8000
+      - EXAMPLES_DIR=/app/examples
+      - VAL_PATH=/usr/local/bin/Validate
+    networks:
+      - agent-net
+
+  purple: # Container name will be 'purple'
+    build: .
+    image: symbolic-oracle
+    # Override the default Green entrypoint to run Purple
+    entrypoint: ["python", "-m", "purple_agent.a2a_server"]
+    ports:
+      - "8001:8001"
+    environment:
+      - AGENT_URL=http://purple:8001
+    networks:
+      - agent-net
+
+networks:
+  agent-net:
+    driver: bridge

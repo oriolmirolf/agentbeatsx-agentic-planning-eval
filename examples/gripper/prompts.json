@@ -1,0 +1,1012 @@
+{
+  "domain_prompt": "DOMAIN BRIEF\n\n# Summary\nA robot moves between rooms, picks up balls with its grippers, and drops them in rooms. Each action increases a cumulative total-cost. The state tracks the robot\u2019s room, where each ball is, which grippers are free, and which balls are being carried by which grippers.\n\n# Object Types\n- Room: A physical location that the robot can navigate to.\n- Ball: An object that can be picked up and transported.\n- Gripper: A robotic hand attached to the robot, capable of holding one ball at a time.\n\n# World Description\nThe robot operates in a physical environment with specific mechanical constraints:\n1. Holding Capacity: Each gripper can hold exactly one ball at a time. A gripper is either \"free\" (empty) or \"carrying\" a specific ball.\n2. Locality: To interact with a ball (pick it up), the robot must be physically present in the same room as the ball.\n3. Transport: When the robot moves between rooms, it carries with it any balls currently held in its grippers.\n4. Cost: Every action (moving, picking, or dropping) consumes energy, adding 1 to the total cost.\n\n# Actions\n\n## Action: move\n- Parameters: From Room, To Room\n- Requirements: The robot must currently be located in the 'From Room'.\n- Effects: The robot leaves the 'From Room' and arrives at the 'To Room'. This action adds 1 to the total cost.\n\n## Action: pick\n- Parameters: Target Ball, Current Room, Target Gripper\n- Requirements: The robot must be in the Current Room. The Target Ball must also be in the Current Room. The Target Gripper must be free (not holding anything).\n- Effects: The gripper grabs the ball. The ball is now held by the gripper and removed from the room's floor. The gripper is no longer free. This action adds 1 to the total cost.\n\n## Action: drop\n- Parameters: Target Ball, Current Room, Target Gripper\n- Requirements: The robot must be in the Current Room. The Target Gripper must be holding the Target Ball.\n- Effects: The robot releases the ball. The ball is placed in the Current Room. The gripper becomes free. This action adds 1 to the total cost.",
+  "actions": [
+    {
+      "name": "move",
+      "signature": "move(FROM, TO)",
+      "parameters": [
+        {
+          "name": "FROM",
+          "kind": "room"
+        },
+        {
+          "name": "TO",
+          "kind": "room"
+        }
+      ],
+      "preconditions": [
+        "The robot is in room FROM."
+      ],
+      "effects": [
+        "The robot is no longer in room FROM.",
+        "The robot is now in room TO."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "pick",
+      "signature": "pick(BALL, ROOM, GRIPPER)",
+      "parameters": [
+        {
+          "name": "BALL",
+          "kind": "ball"
+        },
+        {
+          "name": "ROOM",
+          "kind": "room"
+        },
+        {
+          "name": "GRIPPER",
+          "kind": "gripper"
+        }
+      ],
+      "preconditions": [
+        "The robot is in ROOM.",
+        "BALL is in ROOM.",
+        "GRIPPER is free."
+      ],
+      "effects": [
+        "BALL is carried by GRIPPER.",
+        "GRIPPER is no longer free.",
+        "BALL is no longer in ROOM."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "drop",
+      "signature": "drop(BALL, ROOM, GRIPPER)",
+      "parameters": [
+        {
+          "name": "BALL",
+          "kind": "ball"
+        },
+        {
+          "name": "ROOM",
+          "kind": "room"
+        },
+        {
+          "name": "GRIPPER",
+          "kind": "gripper"
+        }
+      ],
+      "preconditions": [
+        "The robot is in ROOM.",
+        "BALL is carried by GRIPPER."
+      ],
+      "effects": [
+        "BALL is placed in ROOM.",
+        "GRIPPER becomes free.",
+        "BALL is no longer carried by GRIPPER."
+      ],
+      "cost": 1
+    }
+  ],
+  "problems": [
+    {
+      "id": "p01",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA mobile robot with two grippers and one ball in a two-room environment.\n\n# Objects\n- Room: roo_bcabae, roo_59c817\n- Gripper: gri_32fce4, gri_42e92a\n- Ball: bal_07e7cd\n\n# Initial State\n- Robot: The robot is located in room roo_bcabae.\n- Ball: bal_07e7cd is on the floor in room roo_bcabae.\n- Grippers: gri_32fce4 and gri_42e92a are not available for use.\n\n# Goal State\n- The ball bal_07e7cd should be on the floor in room roo_59c817.\n\n# Optimization Metric\n- Minimize total energy cost (total-cost).",
+      "overview": {
+        "description": "Transport the ball bal_07e7cd from roo_bcabae to roo_59c817.",
+        "initial_state": "Robot is at roo_bcabae. bal_07e7cd is at roo_bcabae.",
+        "goal": "bal_07e7cd is at roo_59c817."
+      },
+      "objects": [
+        {
+          "name": "roo_bcabae",
+          "kind": "room",
+          "summary": "The starting room.",
+          "attributes": {}
+        },
+        {
+          "name": "roo_59c817",
+          "kind": "room",
+          "summary": "The target room.",
+          "attributes": {}
+        },
+        {
+          "name": "gri_32fce4",
+          "kind": "gripper",
+          "summary": "Robot gripper 1.",
+          "attributes": {}
+        },
+        {
+          "name": "gri_42e92a",
+          "kind": "gripper",
+          "summary": "Robot gripper 2.",
+          "attributes": {}
+        },
+        {
+          "name": "bal_07e7cd",
+          "kind": "ball",
+          "summary": "The ball to be moved.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        }
+      ],
+      "optimal_cost": -1,
+      "difficulty": "Easy"
+    },
+    {
+      "id": "p02",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA mobile robot with two grippers in a two-room environment, with two balls initially in one room.\n\n# Objects\n- Rooms: roo_bcabae, roo_59c817\n- Grippers: gri_32fce4, gri_42e92a\n- Balls: bal_07e7cd, bal_e201c6\n\n# Initial State\n- Robot and grippers: The robot is in room roo_bcabae. Both grippers (gri_32fce4 and gri_42e92a) are empty.\n- Balls and locations: Ball bal_07e7cd is in room roo_bcabae. Ball bal_e201c6 is also in room roo_bcabae.\n\n# Goal State\n- Ball bal_07e7cd is placed in room roo_59c817.\n- Ball bal_e201c6 is placed in room roo_59c817.\n\n# Optimization Metric\n- Minimize total cost (number of actions).",
+      "overview": {
+        "description": "Transport all balls from roo_bcabae to roo_59c817 using a two-gripper robot.",
+        "initial_state": "Robot in roo_bcabae; gri_32fce4 and gri_42e92a are free; balls in roo_bcabae: bal_07e7cd, bal_e201c6.",
+        "goal": "All balls are in roo_59c817: bal_07e7cd, bal_e201c6."
+      },
+      "objects": [
+        {
+          "name": "roo_bcabae",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "start"
+          }
+        },
+        {
+          "name": "roo_59c817",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "target"
+          }
+        },
+        {
+          "name": "gri_32fce4",
+          "kind": "gripper",
+          "summary": "Robot gripper 1.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "gri_42e92a",
+          "kind": "gripper",
+          "summary": "Robot gripper 2.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "bal_07e7cd",
+          "kind": "ball",
+          "summary": "Ball bal_07e7cd.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_e201c6",
+          "kind": "ball",
+          "summary": "Ball bal_e201c6.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        }
+      ],
+      "optimal_cost": 5,
+      "difficulty": "easy"
+    },
+    {
+      "id": "p03",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA mobile robot with two grippers and three balls in a two-room environment.\n\n# Objects\n- Rooms: roo_bcabae, roo_59c817\n- Grippers: gri_32fce4, gri_42e92a\n- Balls: bal_07e7cd, bal_e201c6, bal_58c0e0\n\n# Initial State\n- Robot: The robot is in room roo_bcabae.\n- Grippers: Both grippers (gri_32fce4 and gri_42e92a) are empty.\n- Balls by location:\n  - In room roo_bcabae: bal_07e7cd, bal_e201c6, bal_58c0e0.\n\n# Goal State\n- All three balls (bal_07e7cd, bal_e201c6, bal_58c0e0) are placed in room roo_59c817.\n\n# Optimization Metric\n- Minimize total-cost",
+      "overview": {
+        "description": "Transport all balls from roo_bcabae to roo_59c817 using a two-gripper robot.",
+        "initial_state": "Robot in roo_bcabae; gri_32fce4 and gri_42e92a are free; balls in roo_bcabae: bal_07e7cd, bal_e201c6, bal_58c0e0.",
+        "goal": "All balls are in roo_59c817: bal_07e7cd, bal_e201c6, bal_58c0e0."
+      },
+      "objects": [
+        {
+          "name": "roo_bcabae",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "start"
+          }
+        },
+        {
+          "name": "roo_59c817",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "target"
+          }
+        },
+        {
+          "name": "gri_32fce4",
+          "kind": "gripper",
+          "summary": "Robot gripper 1.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "gri_42e92a",
+          "kind": "gripper",
+          "summary": "Robot gripper 2.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "bal_07e7cd",
+          "kind": "ball",
+          "summary": "Ball bal_07e7cd.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_e201c6",
+          "kind": "ball",
+          "summary": "Ball bal_e201c6.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_58c0e0",
+          "kind": "ball",
+          "summary": "Ball bal_58c0e0.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        }
+      ],
+      "optimal_cost": 9,
+      "difficulty": "easy"
+    },
+    {
+      "id": "p04",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA mobile robot with two grippers in a two-room area, with four balls initially in one room.\n\n# Objects\n- Room: roo_bcabae, roo_59c817\n- Gripper: gri_32fce4, gri_42e92a\n- Ball: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846\n\n# Initial State\n- Robot: The robot is in room roo_bcabae.\n- Grippers: Both grippers (gri_32fce4 and gri_42e92a) are empty.\n- Balls by location:\n  - In room roo_bcabae: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846.\n  - In room roo_59c817: none.\n\n# Goal State\n- All four balls (bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846) are placed in room roo_59c817.\n\n# Optimization Metric\n- Minimize total-cost.",
+      "overview": {
+        "description": "Transport all balls from roo_bcabae to roo_59c817 using a two-gripper robot.",
+        "initial_state": "Robot in roo_bcabae; gri_32fce4 and gri_42e92a are free; balls in roo_bcabae: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846.",
+        "goal": "All balls are in roo_59c817: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846."
+      },
+      "objects": [
+        {
+          "name": "roo_bcabae",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "start"
+          }
+        },
+        {
+          "name": "roo_59c817",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "target"
+          }
+        },
+        {
+          "name": "gri_32fce4",
+          "kind": "gripper",
+          "summary": "Robot gripper 1.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "gri_42e92a",
+          "kind": "gripper",
+          "summary": "Robot gripper 2.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "bal_07e7cd",
+          "kind": "ball",
+          "summary": "Ball bal_07e7cd.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_e201c6",
+          "kind": "ball",
+          "summary": "Ball bal_e201c6.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_58c0e0",
+          "kind": "ball",
+          "summary": "Ball bal_58c0e0.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_a03846",
+          "kind": "ball",
+          "summary": "Ball bal_a03846.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        }
+      ],
+      "optimal_cost": 11,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p05",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA mobile robot with two grippers needs to move five balls from one room to another.\n\n# Objects\n- Rooms: roo_bcabae, roo_59c817\n- Grippers: gri_32fce4, gri_42e92a\n- Balls: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358\n\n# Initial State\n- Robot and grippers: The robot is in room roo_bcabae. Both grippers (gri_32fce4 and gri_42e92a) are empty.\n- Balls and locations: All five balls (bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358) are in room roo_bcabae.\n\n# Goal State\n- Each of the five balls (bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358) is placed in room roo_59c817.\n\n# Optimization Metric\n- Minimize total-cost",
+      "overview": {
+        "description": "Transport all balls from roo_bcabae to roo_59c817 using a two-gripper robot.",
+        "initial_state": "Robot in roo_bcabae; gri_32fce4 and gri_42e92a are free; balls in roo_bcabae: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358.",
+        "goal": "All balls are in roo_59c817: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358."
+      },
+      "objects": [
+        {
+          "name": "roo_bcabae",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "start"
+          }
+        },
+        {
+          "name": "roo_59c817",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "target"
+          }
+        },
+        {
+          "name": "gri_32fce4",
+          "kind": "gripper",
+          "summary": "Robot gripper 1.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "gri_42e92a",
+          "kind": "gripper",
+          "summary": "Robot gripper 2.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "bal_07e7cd",
+          "kind": "ball",
+          "summary": "Ball bal_07e7cd.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_e201c6",
+          "kind": "ball",
+          "summary": "Ball bal_e201c6.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_58c0e0",
+          "kind": "ball",
+          "summary": "Ball bal_58c0e0.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_a03846",
+          "kind": "ball",
+          "summary": "Ball bal_a03846.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_d17358",
+          "kind": "ball",
+          "summary": "Ball bal_d17358.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        }
+      ],
+      "optimal_cost": 15,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p06",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA mobile robot with two grippers in a two-room environment and six balls on the floor of one room.\n\n# Objects\n- Rooms: roo_bcabae, roo_59c817\n- Grippers: gri_32fce4, gri_42e92a\n- Balls: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb\n\n# Initial State\n- Robot: The robot is in room roo_bcabae with both grippers (gri_32fce4 and gri_42e92a) empty.\n- Room roo_bcabae: All six balls (bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb) are on the floor here.\n- Room roo_59c817: No balls present initially.\n\n# Goal State\n- All six balls (bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb) are placed in room roo_59c817.\n\n# Optimization Metric\n- Minimize total-cost",
+      "overview": {
+        "description": "Transport all balls from roo_bcabae to roo_59c817 using a two-gripper robot.",
+        "initial_state": "Robot in roo_bcabae; gri_32fce4 and gri_42e92a are free; balls in roo_bcabae: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb.",
+        "goal": "All balls are in roo_59c817: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb."
+      },
+      "objects": [
+        {
+          "name": "roo_bcabae",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "start"
+          }
+        },
+        {
+          "name": "roo_59c817",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "target"
+          }
+        },
+        {
+          "name": "gri_32fce4",
+          "kind": "gripper",
+          "summary": "Robot gripper 1.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "gri_42e92a",
+          "kind": "gripper",
+          "summary": "Robot gripper 2.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "bal_07e7cd",
+          "kind": "ball",
+          "summary": "Ball bal_07e7cd.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_e201c6",
+          "kind": "ball",
+          "summary": "Ball bal_e201c6.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_58c0e0",
+          "kind": "ball",
+          "summary": "Ball bal_58c0e0.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_a03846",
+          "kind": "ball",
+          "summary": "Ball bal_a03846.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_d17358",
+          "kind": "ball",
+          "summary": "Ball bal_d17358.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_f061eb",
+          "kind": "ball",
+          "summary": "Ball bal_f061eb.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        }
+      ],
+      "optimal_cost": 17,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p07",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA mobile robot with two grippers in a two-room environment, with seven balls initially gathered in one room.\n\n# Objects\n- Rooms: roo_bcabae, roo_59c817\n- Grippers: gri_32fce4, gri_42e92a\n- Balls: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241\n\n# Initial State\n- Robot location and tools: The robot is in room roo_bcabae. Both grippers (gri_32fce4 and gri_42e92a) are empty.\n- Ball locations: All seven balls (bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241) are in room roo_bcabae.\n\n# Goal State\n- Each of the seven balls (bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241) is placed in room roo_59c817.\n\n# Optimization Metric\n- Minimize total-cost",
+      "overview": {
+        "description": "Transport all balls from roo_bcabae to roo_59c817 using a two-gripper robot.",
+        "initial_state": "Robot in roo_bcabae; gri_32fce4 and gri_42e92a are free; balls in roo_bcabae: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241.",
+        "goal": "All balls are in roo_59c817: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241."
+      },
+      "objects": [
+        {
+          "name": "roo_bcabae",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "start"
+          }
+        },
+        {
+          "name": "roo_59c817",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "target"
+          }
+        },
+        {
+          "name": "gri_32fce4",
+          "kind": "gripper",
+          "summary": "Robot gripper 1.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "gri_42e92a",
+          "kind": "gripper",
+          "summary": "Robot gripper 2.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "bal_07e7cd",
+          "kind": "ball",
+          "summary": "Ball bal_07e7cd.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_e201c6",
+          "kind": "ball",
+          "summary": "Ball bal_e201c6.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_58c0e0",
+          "kind": "ball",
+          "summary": "Ball bal_58c0e0.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_a03846",
+          "kind": "ball",
+          "summary": "Ball bal_a03846.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_d17358",
+          "kind": "ball",
+          "summary": "Ball bal_d17358.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_f061eb",
+          "kind": "ball",
+          "summary": "Ball bal_f061eb.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_d0c241",
+          "kind": "ball",
+          "summary": "Ball bal_d0c241.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        }
+      ],
+      "optimal_cost": 21,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p08",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA mobile robot with two grippers in a two-room environment and eight balls on the floor.\n\n# Objects\n- Room: roo_bcabae, roo_59c817\n- Gripper: gri_32fce4, gri_42e92a\n- Ball: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3\n\n# Initial State\n- Robot: The robot is in room roo_bcabae.\n- Grippers: Both grippers (gri_32fce4, gri_42e92a) are empty.\n- Balls: All eight balls (bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3) are on the floor in room roo_bcabae.\n\n# Goal State\n- Each of the eight balls is on the floor in room roo_59c817.\n\n# Optimization Metric\n- Minimize total-cost",
+      "overview": {
+        "description": "Transport all balls from roo_bcabae to roo_59c817 using a two-gripper robot.",
+        "initial_state": "Robot in roo_bcabae; gri_32fce4 and gri_42e92a are free; balls in roo_bcabae: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3.",
+        "goal": "All balls are in roo_59c817: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3."
+      },
+      "objects": [
+        {
+          "name": "roo_bcabae",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "start"
+          }
+        },
+        {
+          "name": "roo_59c817",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "target"
+          }
+        },
+        {
+          "name": "gri_32fce4",
+          "kind": "gripper",
+          "summary": "Robot gripper 1.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "gri_42e92a",
+          "kind": "gripper",
+          "summary": "Robot gripper 2.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "bal_07e7cd",
+          "kind": "ball",
+          "summary": "Ball bal_07e7cd.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_e201c6",
+          "kind": "ball",
+          "summary": "Ball bal_e201c6.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_58c0e0",
+          "kind": "ball",
+          "summary": "Ball bal_58c0e0.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_a03846",
+          "kind": "ball",
+          "summary": "Ball bal_a03846.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_d17358",
+          "kind": "ball",
+          "summary": "Ball bal_d17358.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_f061eb",
+          "kind": "ball",
+          "summary": "Ball bal_f061eb.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_d0c241",
+          "kind": "ball",
+          "summary": "Ball bal_d0c241.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_1a5af3",
+          "kind": "ball",
+          "summary": "Ball bal_1a5af3.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        }
+      ],
+      "optimal_cost": 23,
+      "difficulty": "hard"
+    },
+    {
+      "id": "p09",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA mobile robot with two grippers and nine balls distributed across rooms.\n\n# Objects\n- Rooms: roo_bcabae, roo_59c817, roo_isolated\n- Grippers: gri_32fce4, gri_42e92a\n- Balls: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3, bal_4eb1be\n\n# Initial State\n- Robot location: The robot is in room roo_bcabae.\n- Grippers: Both grippers (gri_32fce4 and gri_42e92a) are empty.\n- Balls by room:\n  - In room roo_bcabae: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3.\n  - In room roo_isolated: bal_4eb1be.\n\n# Goal State\n- All nine balls (bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3, bal_4eb1be) are placed in room roo_59c817.\n\n# Optimization Metric\n- Minimize total-cost.",
+      "overview": {
+        "description": "Transport all 9 balls to roo_59c817.",
+        "initial_state": "Robot at roo_bcabae. 8 balls at roo_bcabae. 1 ball (bal_4eb1be) at roo_isolated.",
+        "goal": "All 9 balls must be located at roo_59c817."
+      },
+      "objects": [
+        {
+          "name": "roo_bcabae",
+          "kind": "room",
+          "summary": "Starting room for the robot and 8 balls.",
+          "attributes": {}
+        },
+        {
+          "name": "roo_59c817",
+          "kind": "room",
+          "summary": "Target room for all balls.",
+          "attributes": {}
+        },
+        {
+          "name": "roo_isolated",
+          "kind": "room",
+          "summary": "Room containing ball bal_4eb1be.",
+          "attributes": {}
+        },
+        {
+          "name": "gri_32fce4",
+          "kind": "gripper",
+          "summary": "Robot gripper 1.",
+          "attributes": {}
+        },
+        {
+          "name": "gri_42e92a",
+          "kind": "gripper",
+          "summary": "Robot gripper 2.",
+          "attributes": {}
+        },
+        {
+          "name": "bal_07e7cd",
+          "kind": "ball",
+          "summary": "Ball at start.",
+          "attributes": {
+            "start_room": "roo_bcabae"
+          }
+        },
+        {
+          "name": "bal_e201c6",
+          "kind": "ball",
+          "summary": "Ball at start.",
+          "attributes": {
+            "start_room": "roo_bcabae"
+          }
+        },
+        {
+          "name": "bal_58c0e0",
+          "kind": "ball",
+          "summary": "Ball at start.",
+          "attributes": {
+            "start_room": "roo_bcabae"
+          }
+        },
+        {
+          "name": "bal_a03846",
+          "kind": "ball",
+          "summary": "Ball at start.",
+          "attributes": {
+            "start_room": "roo_bcabae"
+          }
+        },
+        {
+          "name": "bal_d17358",
+          "kind": "ball",
+          "summary": "Ball at start.",
+          "attributes": {
+            "start_room": "roo_bcabae"
+          }
+        },
+        {
+          "name": "bal_f061eb",
+          "kind": "ball",
+          "summary": "Ball at start.",
+          "attributes": {
+            "start_room": "roo_bcabae"
+          }
+        },
+        {
+          "name": "bal_d0c241",
+          "kind": "ball",
+          "summary": "Ball at start.",
+          "attributes": {
+            "start_room": "roo_bcabae"
+          }
+        },
+        {
+          "name": "bal_1a5af3",
+          "kind": "ball",
+          "summary": "Ball at start.",
+          "attributes": {
+            "start_room": "roo_bcabae"
+          }
+        },
+        {
+          "name": "bal_4eb1be",
+          "kind": "ball",
+          "summary": "Ball at roo_isolated.",
+          "attributes": {
+            "start_room": "roo_isolated"
+          }
+        }
+      ],
+      "optimal_cost": -1,
+      "difficulty": "Hard"
+    },
+    {
+      "id": "p10",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA mobile robot with two grippers needs to move ten balls from one room to another.\n\n# Objects\n- Room: roo_bcabae, roo_59c817\n- Gripper: gri_32fce4, gri_42e92a\n- Ball: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3, bal_4eb1be, bal_072e86\n\n# Initial State\n- Robot: The robot is in room roo_bcabae.\n- Grippers: Both gri_32fce4 and gri_42e92a are empty.\n- Balls and locations: All ten balls (bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3, bal_4eb1be, bal_072e86) are on the floor in room roo_bcabae.\n\n# Goal State\n- Every ball (bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3, bal_4eb1be, bal_072e86) is on the floor in room roo_59c817.\n\n# Optimization Metric\n- Minimize total-cost",
+      "overview": {
+        "description": "Transport all balls from roo_bcabae to roo_59c817 using a two-gripper robot.",
+        "initial_state": "Robot in roo_bcabae; gri_32fce4 and gri_42e92a are free; balls in roo_bcabae: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3, bal_4eb1be, bal_072e86.",
+        "goal": "All balls are in roo_59c817: bal_07e7cd, bal_e201c6, bal_58c0e0, bal_a03846, bal_d17358, bal_f061eb, bal_d0c241, bal_1a5af3, bal_4eb1be, bal_072e86."
+      },
+      "objects": [
+        {
+          "name": "roo_bcabae",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "start"
+          }
+        },
+        {
+          "name": "roo_59c817",
+          "kind": "room",
+          "summary": "A room.",
+          "attributes": {
+            "role": "target"
+          }
+        },
+        {
+          "name": "gri_32fce4",
+          "kind": "gripper",
+          "summary": "Robot gripper 1.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "gri_42e92a",
+          "kind": "gripper",
+          "summary": "Robot gripper 2.",
+          "attributes": {
+            "capacity_balls": 1
+          }
+        },
+        {
+          "name": "bal_07e7cd",
+          "kind": "ball",
+          "summary": "Ball bal_07e7cd.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_e201c6",
+          "kind": "ball",
+          "summary": "Ball bal_e201c6.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_58c0e0",
+          "kind": "ball",
+          "summary": "Ball bal_58c0e0.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_a03846",
+          "kind": "ball",
+          "summary": "Ball bal_a03846.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_d17358",
+          "kind": "ball",
+          "summary": "Ball bal_d17358.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_f061eb",
+          "kind": "ball",
+          "summary": "Ball bal_f061eb.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_d0c241",
+          "kind": "ball",
+          "summary": "Ball bal_d0c241.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_1a5af3",
+          "kind": "ball",
+          "summary": "Ball bal_1a5af3.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_4eb1be",
+          "kind": "ball",
+          "summary": "Ball bal_4eb1be.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        },
+        {
+          "name": "bal_072e86",
+          "kind": "ball",
+          "summary": "Ball bal_072e86.",
+          "attributes": {
+            "start_room": "roo_bcabae",
+            "goal_room": "roo_59c817"
+          }
+        }
+      ],
+      "optimal_cost": 29,
+      "difficulty": "hard"
+    }
+  ]
+}

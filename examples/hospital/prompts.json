@@ -1,0 +1,1208 @@
+{
+  "domain_prompt": "DOMAIN BRIEF\n\n# Summary\nThis domain models hospital bed management. Patients are admitted to, transferred between, and discharged from beds in wards. Beds can be free, dirty, or blocked, and some patients require isolation-capable beds. Actions update patient and bed states and accumulate total-cost.\n\n# Object Types\n- Patient: A person requiring medical care.\n- Bed: A physical resource where a patient stays.\n- Ward: A specific department or area of the hospital (e.g., ICU, General) containing specific beds.\n\n# World Description\nThe hospital operates under strict hygiene and safety protocols:\n1. Bed Lifecycle: A bed is not just \"empty\" or \"full.\" It cycles through states. A bed starts as **Free**. After a patient leaves it (transfer or discharge), it becomes **Dirty** and must be cleaned before it is Free again. It can also be **Blocked** for maintenance.\n2. Ward Alignment: Every patient is assigned to a specific Ward type. They can only be placed in beds that physically belong to that same Ward.\n3. Isolation Protocol: Some patients are contagious or immune-compromised and are flagged as \"Isolation Required.\" These patients can *only* be placed in beds marked as \"Isolation Capable.\" Non-isolation patients can use any bed.\n4. Cost: Every administrative action (admitting, moving, cleaning) consumes hospital resources, adding 1 to the Total Cost.\n\n# Actions\n\n## Action: admit\n- Parameters: Target Patient, Target Bed, Target Ward\n- Requirements: The Patient must be currently waiting for admission. The Target Bed must be Free (clean and empty). The Patient must require the specific Ward that the Bed belongs to. Crucially, if the Patient requires isolation, the Bed must be isolation-capable.\n- Effects: The Patient is placed in the Bed. The Bed is no longer Free. The Patient is no longer waiting. This action adds 1 to the total cost.\n\n## Action: transfer\n- Parameters: Target Patient, From Bed, To Bed, Target Ward\n- Requirements: Move a patient from one bed to another. The Patient must currently be in the 'From Bed'. The 'To Bed' must be Free. The Patient's Ward requirement must match the 'To Bed'. The isolation rules still apply: if the patient needs isolation, the new bed must support it.\n- Effects: The Patient is moved to the 'To Bed'. The 'From Bed' becomes Dirty (it must be cleaned before reuse). The 'To Bed' is no longer Free. This action adds 1 to the total cost.\n\n## Action: discharge\n- Parameters: Target Patient, Current Bed\n- Requirements: The Patient must currently be in the Current Bed.\n- Effects: The Patient leaves the hospital (status becomes discharged). The Current Bed becomes Dirty. This action adds 1 to the total cost.\n\n## Action: clean-bed\n- Parameters: Target Bed\n- Requirements: The bed must currently be Dirty. It cannot be Blocked.\n- Effects: The bed becomes Free and ready for a new patient. The Dirty status is removed. This action adds 1 to the total cost.\n\n## Action: block-bed\n- Parameters: Target Bed\n- Requirements: The bed must be currently Free (empty and clean). It cannot be already Blocked.\n- Effects: The bed becomes Blocked (unavailable for use). It is no longer Free. This action adds 1 to the total cost.\n\n## Action: unblock-bed\n- Parameters: Target Bed\n- Requirements: The bed must currently be Blocked.\n- Effects: The bed becomes Free again. The Blocked status is removed. This action adds 1 to the total cost.",
+  "actions": [
+    {
+      "name": "admit",
+      "signature": "admit(p, b, w)",
+      "parameters": [
+        {
+          "name": "p",
+          "kind": "patient"
+        },
+        {
+          "name": "b",
+          "kind": "bed"
+        },
+        {
+          "name": "w",
+          "kind": "ward"
+        }
+      ],
+      "preconditions": [
+        "p is waiting.",
+        "p is not discharged.",
+        "b is bed-free.",
+        "b is not bed-dirty.",
+        "b is not bed-blocked.",
+        "p requires ward w.",
+        "b belongs to ward w.",
+        "If p requires isolation, b must be an isolation bed."
+      ],
+      "effects": [
+        "p stops waiting.",
+        "p becomes in-bed(p, b).",
+        "b is no longer bed-free.",
+        "total-cost increases by 1."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "transfer",
+      "signature": "transfer(p, from, to, w)",
+      "parameters": [
+        {
+          "name": "p",
+          "kind": "patient"
+        },
+        {
+          "name": "from",
+          "kind": "bed"
+        },
+        {
+          "name": "to",
+          "kind": "bed"
+        },
+        {
+          "name": "w",
+          "kind": "ward"
+        }
+      ],
+      "preconditions": [
+        "p is in-bed(p, from).",
+        "to is bed-free.",
+        "to is not bed-dirty.",
+        "to is not bed-blocked.",
+        "p requires ward w.",
+        "to belongs to ward w.",
+        "If p requires isolation, to must be an isolation bed."
+      ],
+      "effects": [
+        "p becomes in-bed(p, to).",
+        "p is no longer in-bed(p, from).",
+        "from becomes bed-dirty.",
+        "to is no longer bed-free.",
+        "total-cost increases by 1."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "discharge",
+      "signature": "discharge(p, b)",
+      "parameters": [
+        {
+          "name": "p",
+          "kind": "patient"
+        },
+        {
+          "name": "b",
+          "kind": "bed"
+        }
+      ],
+      "preconditions": [
+        "p is in-bed(p, b)."
+      ],
+      "effects": [
+        "p becomes discharged.",
+        "p is no longer in-bed(p, b).",
+        "b becomes bed-dirty.",
+        "total-cost increases by 1."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "clean-bed",
+      "signature": "clean-bed(b)",
+      "parameters": [
+        {
+          "name": "b",
+          "kind": "bed"
+        }
+      ],
+      "preconditions": [
+        "b is bed-dirty.",
+        "b is not bed-blocked."
+      ],
+      "effects": [
+        "b is no longer bed-dirty.",
+        "b becomes bed-free.",
+        "total-cost increases by 1."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "block-bed",
+      "signature": "block-bed(b)",
+      "parameters": [
+        {
+          "name": "b",
+          "kind": "bed"
+        }
+      ],
+      "preconditions": [
+        "b is bed-free.",
+        "b is not bed-blocked."
+      ],
+      "effects": [
+        "b becomes bed-blocked.",
+        "b is no longer bed-free.",
+        "total-cost increases by 1."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "unblock-bed",
+      "signature": "unblock-bed(b)",
+      "parameters": [
+        {
+          "name": "b",
+          "kind": "bed"
+        }
+      ],
+      "preconditions": [
+        "b is bed-blocked."
+      ],
+      "effects": [
+        "b is no longer bed-blocked.",
+        "b becomes bed-free.",
+        "total-cost increases by 1."
+      ],
+      "cost": 1
+    }
+  ],
+  "problems": [
+    {
+      "id": "p01",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA small medical ward with two clean, available beds and two patients waiting to be placed.\n\n# Objects\n- Patients: p1, p2\n- Beds: b1, b2\n- Wards: w_med\n\n# Initial State\n- Ward w_med: Contains beds b1 and b2.\n- Beds: b1 is clean and available; b2 is clean and available.\n- Patients: p1 and p2 are waiting to be placed in the medical ward.\n\n# Goal State\n- Patient p1 is placed in bed b1 in the medical ward.\n- Patient p2 is placed in bed b2 in the medical ward.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Admit two waiting patients into two available medical beds.",
+        "initial_state": "Both patients are waiting. Both beds are free, clean, and unblocked in w_med.",
+        "goal": "p1 occupies b1 and p2 occupies b2."
+      },
+      "objects": [
+        {
+          "name": "w_med",
+          "kind": "ward",
+          "summary": "Medical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "p1",
+          "kind": "patient",
+          "summary": "Waiting patient requiring medical ward.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "p2",
+          "kind": "patient",
+          "summary": "Waiting patient requiring medical ward.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bed",
+          "summary": "Medical bed b1.",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": true,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": null
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bed",
+          "summary": "Medical bed b2.",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": true,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": null
+          }
+        }
+      ],
+      "optimal_cost": 2,
+      "difficulty": "easy"
+    },
+    {
+      "id": "p02",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA hospital ward with two beds: one dirty and one blocked; a single patient is waiting to be placed.\n\n# Objects\n- Patient: p1\n- Bed: b1, b2\n- Ward: w_med\n\n# Initial State\n- Ward w_med: Beds b1 and b2 belong to this ward.\n- Bed b1: In the ward, currently dirty and not usable until cleaned.\n- Bed b2: In the ward, currently blocked and unavailable.\n- Patient p1: Assigned to ward w_med and waiting for a bed.\n\n# Goal State\n- Patient p1 is placed in bed b1.\n\n# Optimization Metric\n- Minimize total cost",
+      "overview": {
+        "description": "Clean a dirty medical bed and admit a waiting patient; the other bed is blocked.",
+        "initial_state": "p1 waiting. b1 is dirty. b2 is blocked.",
+        "goal": "p1 occupies b1."
+      },
+      "objects": [
+        {
+          "name": "w_med",
+          "kind": "ward",
+          "summary": "Medical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "p1",
+          "kind": "patient",
+          "summary": "Waiting patient requiring medical ward.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bed",
+          "summary": "Medical bed b1 (dirty).",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": true,
+            "bed_blocked": false,
+            "occupied_by": null
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bed",
+          "summary": "Medical bed b2 (blocked).",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": true,
+            "occupied_by": null
+          }
+        }
+      ],
+      "optimal_cost": 2,
+      "difficulty": "easy"
+    },
+    {
+      "id": "p03",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA single patient is currently occupying a bed in the medical ward, while a different bed in the ICU ward is clean and empty.\n\n# Objects\n- Patients: p1\n- Beds: b_icu, b_med\n- Wards: w_icu, w_med\n\n# Initial State\n- Patient p1: Assigned to the ICU ward (w_icu) but currently staying in bed b_med.\n- Beds and wards:\n  - Bed b_med belongs to the medical ward (w_med) and is occupied by p1.\n  - Bed b_icu belongs to the medical ward (w_med) and is clean and empty.\n\n# Goal State\n- Patient p1 is staying in bed b_icu.\n\n# Optimization Metric\n- Minimize total cost",
+      "overview": {
+        "description": "Move patient p1 from their current bed to bed b_icu.",
+        "initial_state": "p1 (requires w_icu) is in b_med. b_icu is free and belongs to w_med.",
+        "goal": "p1 is in bed b_icu."
+      },
+      "objects": [
+        {
+          "name": "w_icu",
+          "kind": "ward",
+          "summary": "ICU ward.",
+          "attributes": {}
+        },
+        {
+          "name": "w_med",
+          "kind": "ward",
+          "summary": "Medical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "p1",
+          "kind": "patient",
+          "summary": "Patient requiring ICU.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_med"
+          }
+        },
+        {
+          "name": "b_icu",
+          "kind": "bed",
+          "summary": "Free bed in Medical ward.",
+          "attributes": {
+            "ward": "w_med",
+            "bed_free": true,
+            "bed_dirty": false
+          }
+        },
+        {
+          "name": "b_med",
+          "kind": "bed",
+          "summary": "Medical bed currently holding p1.",
+          "attributes": {
+            "ward": "w_med",
+            "bed_free": false,
+            "occupied_by": "p1"
+          }
+        }
+      ],
+      "optimal_cost": -1,
+      "difficulty": "Easy"
+    },
+    {
+      "id": "p04",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA hospital with ICU and Medical wards, where two patients are already in beds (one overflowing into ICU), one Med bed is dirty, and a new ICU emergency is waiting for a bed.\n\n# Objects\n- Patients: p_emerg, p_medA, p_medB\n- Beds: b_icu1, b_med1, b_med2\n- Wards: w_icu, w_med\n\n# Initial State\n- Patients and beds:\n  - p_medA is occupying ICU bed b_icu1, even though this patient belongs to the Medical ward.\n  - p_medB is occupying Medical bed b_med1 in the Medical ward.\n  - p_emerg, an ICU patient, is waiting for a bed and is not in any bed yet.\n- Bed conditions and locations:\n  - b_icu1 is an ICU bed located in the ICU ward.\n  - b_med1 and b_med2 are Medical beds located in the Medical ward; b_med2 is dirty and not ready for use.\n\n# Goal State\n- The ICU emergency patient is placed in ICU bed b_icu1.\n- Patient p_medA is placed in Medical bed b_med1.\n- Patient p_medB is placed in Medical bed b_med2.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Reallocate beds to free ICU capacity and place med patients into med beds, including cleaning capacity.",
+        "initial_state": "ICU bed is occupied by a med overflow patient; one med bed occupied; another med bed is dirty; ICU patient is waiting.",
+        "goal": "Waiting ICU patient in ICU, med patients in med beds (with one requiring bed cleaning first)."
+      },
+      "objects": [
+        {
+          "name": "w_icu",
+          "kind": "ward",
+          "summary": "ICU ward.",
+          "attributes": {}
+        },
+        {
+          "name": "w_med",
+          "kind": "ward",
+          "summary": "Medical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "p_emerg",
+          "kind": "patient",
+          "summary": "Waiting ICU patient.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "p_medA",
+          "kind": "patient",
+          "summary": "Medical patient overflowing into ICU bed.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_icu1"
+          }
+        },
+        {
+          "name": "p_medB",
+          "kind": "patient",
+          "summary": "Medical patient in a med bed.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_med1"
+          }
+        },
+        {
+          "name": "b_icu1",
+          "kind": "bed",
+          "summary": "ICU bed currently occupied by p_medA.",
+          "attributes": {
+            "ward": "w_icu",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_medA"
+          }
+        },
+        {
+          "name": "b_med1",
+          "kind": "bed",
+          "summary": "Medical bed currently occupied by p_medB.",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_medB"
+          }
+        },
+        {
+          "name": "b_med2",
+          "kind": "bed",
+          "summary": "Medical bed (dirty).",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": true,
+            "bed_blocked": false,
+            "occupied_by": null
+          }
+        }
+      ],
+      "optimal_cost": 6,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p05",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA hospital with ICU and Medical wards, where several patients occupy beds, some beds are dirty, and new patients are waiting to be placed.\n\n# Objects\n- Patients: p_emerg1, p_emerg2, p_iso, p_medA, p_medB, p_old_icu\n- Beds: b_icu1, b_icu2, b_med1, b_med2, b_iso\n- Wards: w_icu, w_med\n\n# Initial State\n- ICU Ward:\n  - Bed b_icu1 contains patient p_medA (a medical ward patient currently in an ICU bed).\n  - Bed b_icu2 contains patient p_old_icu.\n- Medical Ward:\n  - Bed b_iso (an isolation-capable bed) contains patient p_medB (who does not require isolation).\n  - Beds b_med1 and b_med2 are empty but dirty and not ready for use.\n- Waiting patients:\n  - p_emerg1 and p_emerg2 are waiting and require ICU beds.\n  - p_iso is waiting and requires a medical bed that supports isolation.\n\n# Goal State\n- p_emerg1 is in ICU bed b_icu1, and p_emerg2 is in ICU bed b_icu2.\n- p_iso is in the isolation-capable medical bed b_iso.\n- p_medA is in medical bed b_med1, and p_medB is in medical bed b_med2.\n- p_old_icu has been discharged, and is no longer in a bed.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "High ICU pressure + isolation constraint: discharge an ICU patient, clean capacity, move overflow, and admit waiting patients correctly.",
+        "initial_state": "Both ICU beds occupied (one by overflow med patient, one by ICU patient to discharge). Isolation bed occupied by a non-isolation patient. Both regular med beds are dirty. Two ICU patients and one isolation patient are waiting.",
+        "goal": "Waiting ICU patients placed into ICU beds, isolation patient placed into isolation bed, med patients moved into regular med beds, and old ICU patient discharged."
+      },
+      "objects": [
+        {
+          "name": "w_icu",
+          "kind": "ward",
+          "summary": "ICU ward.",
+          "attributes": {}
+        },
+        {
+          "name": "w_med",
+          "kind": "ward",
+          "summary": "Medical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "p_emerg1",
+          "kind": "patient",
+          "summary": "Waiting ICU patient.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "p_emerg2",
+          "kind": "patient",
+          "summary": "Waiting ICU patient.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "p_iso",
+          "kind": "patient",
+          "summary": "Isolation-required med patient waiting.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": true,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "p_medA",
+          "kind": "patient",
+          "summary": "Med patient overflowing into ICU1.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_icu1"
+          }
+        },
+        {
+          "name": "p_medB",
+          "kind": "patient",
+          "summary": "Med patient occupying the isolation bed.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_iso"
+          }
+        },
+        {
+          "name": "p_old_icu",
+          "kind": "patient",
+          "summary": "ICU patient to be discharged.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_icu2"
+          }
+        },
+        {
+          "name": "b_icu1",
+          "kind": "bed",
+          "summary": "ICU bed 1.",
+          "attributes": {
+            "ward": "w_icu",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_medA"
+          }
+        },
+        {
+          "name": "b_icu2",
+          "kind": "bed",
+          "summary": "ICU bed 2.",
+          "attributes": {
+            "ward": "w_icu",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_old_icu"
+          }
+        },
+        {
+          "name": "b_med1",
+          "kind": "bed",
+          "summary": "Medical bed 1 (dirty).",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": true,
+            "bed_blocked": false,
+            "occupied_by": null
+          }
+        },
+        {
+          "name": "b_med2",
+          "kind": "bed",
+          "summary": "Medical bed 2 (dirty).",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": true,
+            "bed_blocked": false,
+            "occupied_by": null
+          }
+        },
+        {
+          "name": "b_iso",
+          "kind": "bed",
+          "summary": "Isolation-capable medical bed.",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": true,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_medB"
+          }
+        }
+      ],
+      "optimal_cost": 11,
+      "difficulty": "hard"
+    },
+    {
+      "id": "p06",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA hospital with one patient and two beds across two wards.\n\n# Objects\n- Patients: p1\n- Beds: b_icu, b_med\n- Wards: w_icu, w_med\n\n# Initial State\n- Patient p1: Assigned to the ICU ward (w_icu) but currently staying in bed b_med, which belongs to the Medical ward (w_med).\n- Beds and wards: Bed b_icu belongs to the Medical ward (w_med) and is clean and available. Bed b_med belongs to the Medical ward (w_med).\n- Cost counter: Total cost is 0.\n\n# Goal State\n- Patient p1 is staying in bed b_icu.\n\n# Optimization Metric\n- Minimize total cost",
+      "overview": {
+        "description": "Reassign all three patients to their respective target beds.",
+        "initial_state": "3 patients, 3 beds. p_icu is in b_surg1; p_surg is in b_med1; p_med is in b_icu1. All beds are occupied.",
+        "goal": "p_icu in b_icu1; p_surg in b_surg1; p_med in b_med1."
+      },
+      "objects": [
+        {
+          "name": "w_icu",
+          "kind": "ward",
+          "summary": "ICU ward.",
+          "attributes": {}
+        },
+        {
+          "name": "w_surg",
+          "kind": "ward",
+          "summary": "Surgical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "w_med",
+          "kind": "ward",
+          "summary": "Medical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "p_icu",
+          "kind": "patient",
+          "summary": "ICU patient.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "current_bed": "b_surg1"
+          }
+        },
+        {
+          "name": "p_surg",
+          "kind": "patient",
+          "summary": "Surgical patient.",
+          "attributes": {
+            "required_ward": "w_surg",
+            "current_bed": "b_med1"
+          }
+        },
+        {
+          "name": "p_med",
+          "kind": "patient",
+          "summary": "Medical patient.",
+          "attributes": {
+            "required_ward": "w_med",
+            "current_bed": "b_icu1"
+          }
+        },
+        {
+          "name": "b_icu1",
+          "kind": "bed",
+          "summary": "ICU bed (occupied).",
+          "attributes": {
+            "ward": "w_icu",
+            "bed_free": false
+          }
+        },
+        {
+          "name": "b_surg1",
+          "kind": "bed",
+          "summary": "Surgery bed (occupied).",
+          "attributes": {
+            "ward": "w_surg",
+            "bed_free": false
+          }
+        },
+        {
+          "name": "b_med1",
+          "kind": "bed",
+          "summary": "Medical bed (occupied).",
+          "attributes": {
+            "ward": "w_med",
+            "bed_free": false
+          }
+        }
+      ],
+      "optimal_cost": -1,
+      "difficulty": "Hard"
+    },
+    {
+      "id": "p07",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA hospital with ICU and Medical wards, each with two beds; some patients are already in beds, two ICU emergencies are waiting, and one bed is dirty and unusable.\n\n# Objects\n- Patients: p_emerg1, p_emerg2, p_medA, p_medB, p_old_icu\n- Beds: b_icu1, b_icu2, b_med1, b_med2\n- Wards: w_icu, w_med\n\n# Initial State\n- Ward assignments: p_emerg1, p_emerg2, and p_old_icu belong to the ICU ward; p_medA and p_medB belong to the Medical ward.\n- ICU beds: b_icu1 holds p_medA; b_icu2 holds p_old_icu.\n- Medical beds: b_med1 holds p_medB; b_med2 is empty but dirty and not usable.\n- Waiting patients: p_emerg1 and p_emerg2 are not in any bed and are waiting for ICU placement.\n\n# Goal State\n- p_emerg1 is in ICU bed b_icu1, and p_emerg2 is in ICU bed b_icu2.\n- p_medA is in Medical bed b_med1, and p_medB is in Medical bed b_med2.\n- p_old_icu has left the hospital.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Two ICU patients arrive while ICU beds are occupied; one med bed is dirty and must be activated as capacity.",
+        "initial_state": "ICU1 has med overflow; ICU2 has ICU patient to discharge; med bed2 is dirty; two ICU patients are waiting.",
+        "goal": "Waiting ICU patients in ICU beds, med patients in med beds, and ICU patient discharged."
+      },
+      "objects": [
+        {
+          "name": "w_icu",
+          "kind": "ward",
+          "summary": "ICU ward.",
+          "attributes": {}
+        },
+        {
+          "name": "w_med",
+          "kind": "ward",
+          "summary": "Medical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "p_emerg1",
+          "kind": "patient",
+          "summary": "Waiting ICU patient.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "p_emerg2",
+          "kind": "patient",
+          "summary": "Waiting ICU patient.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "p_medA",
+          "kind": "patient",
+          "summary": "Med overflow patient in ICU1.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_icu1"
+          }
+        },
+        {
+          "name": "p_medB",
+          "kind": "patient",
+          "summary": "Med patient in med bed1.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_med1"
+          }
+        },
+        {
+          "name": "p_old_icu",
+          "kind": "patient",
+          "summary": "ICU patient to discharge.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_icu2"
+          }
+        },
+        {
+          "name": "b_icu1",
+          "kind": "bed",
+          "summary": "ICU bed 1.",
+          "attributes": {
+            "ward": "w_icu",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_medA"
+          }
+        },
+        {
+          "name": "b_icu2",
+          "kind": "bed",
+          "summary": "ICU bed 2.",
+          "attributes": {
+            "ward": "w_icu",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_old_icu"
+          }
+        },
+        {
+          "name": "b_med1",
+          "kind": "bed",
+          "summary": "Medical bed 1.",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_medB"
+          }
+        },
+        {
+          "name": "b_med2",
+          "kind": "bed",
+          "summary": "Medical bed 2 (dirty).",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": true,
+            "bed_blocked": false,
+            "occupied_by": null
+          }
+        }
+      ],
+      "optimal_cost": 9,
+      "difficulty": "hard"
+    },
+    {
+      "id": "p08",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA hospital with ICU, Surgical, and Medical wards where several patients are in mismatched beds, one bed is dirty, and one patient is waiting.\n\n# Objects\n- Patients: p_icu1, p_icu2, p_surg1, p_med1, p_med2\n- Beds: b_icu1, b_icu2, b_surg1, b_med1, b_med2\n- Wards: w_icu, w_surg, w_med\n\n# Initial State\n- ICU Ward:\n  - Bed b_icu1 has patient p_icu1.\n  - Bed b_icu2 is empty but dirty.\n- Surgical Ward:\n  - Bed b_surg1 has patient p_icu2.\n- Medical Ward:\n  - Bed b_med1 has patient p_surg1.\n  - Bed b_med2 has patient p_med1.\n- Waiting Area:\n  - Patient p_med2 is waiting to be placed in a bed.\n\n# Goal State\n- Patient p_icu1 remains in bed b_icu1 in the ICU ward.\n- Patient p_icu2 is in bed b_icu2 in the ICU ward.\n- Patient p_surg1 is in bed b_surg1 in the Surgical ward.\n- Patient p_med1 is in bed b_med1 in the Medical ward.\n- Patient p_med2 is in bed b_med2 in the Medical ward.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Multi-ward overflow plus a waiting med patient: clean ICU2, unwind overflows, and admit the waiting med patient.",
+        "initial_state": "ICU2 is dirty; one ICU patient overflows into surgery; surgery patient overflows into med; one med patient occupies a med bed; one med patient is waiting.",
+        "goal": "All placements corrected and both med patients end in med beds."
+      },
+      "objects": [
+        {
+          "name": "w_icu",
+          "kind": "ward",
+          "summary": "ICU ward.",
+          "attributes": {}
+        },
+        {
+          "name": "w_surg",
+          "kind": "ward",
+          "summary": "Surgical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "w_med",
+          "kind": "ward",
+          "summary": "Medical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "p_icu1",
+          "kind": "patient",
+          "summary": "ICU patient placed in ICU1.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_icu1"
+          }
+        },
+        {
+          "name": "p_icu2",
+          "kind": "patient",
+          "summary": "ICU patient overflowing into surgery.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_surg1"
+          }
+        },
+        {
+          "name": "p_surg1",
+          "kind": "patient",
+          "summary": "Surgical patient overflowing into med.",
+          "attributes": {
+            "required_ward": "w_surg",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_med1"
+          }
+        },
+        {
+          "name": "p_med1",
+          "kind": "patient",
+          "summary": "Med patient occupying med bed2.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_med2"
+          }
+        },
+        {
+          "name": "p_med2",
+          "kind": "patient",
+          "summary": "Waiting med patient.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "b_icu1",
+          "kind": "bed",
+          "summary": "ICU bed 1 (occupied).",
+          "attributes": {
+            "ward": "w_icu",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_icu1"
+          }
+        },
+        {
+          "name": "b_icu2",
+          "kind": "bed",
+          "summary": "ICU bed 2 (dirty).",
+          "attributes": {
+            "ward": "w_icu",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": true,
+            "bed_blocked": false,
+            "occupied_by": null
+          }
+        },
+        {
+          "name": "b_surg1",
+          "kind": "bed",
+          "summary": "Surgery bed (occupied).",
+          "attributes": {
+            "ward": "w_surg",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_icu2"
+          }
+        },
+        {
+          "name": "b_med1",
+          "kind": "bed",
+          "summary": "Med bed 1 (occupied by overflow).",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_surg1"
+          }
+        },
+        {
+          "name": "b_med2",
+          "kind": "bed",
+          "summary": "Med bed 2 (occupied).",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_med1"
+          }
+        }
+      ],
+      "optimal_cost": 8,
+      "difficulty": "hard"
+    },
+    {
+      "id": "p09",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA hospital ward with three beds, two patients already in beds, one bed blocked and dirty, and a new patient waiting for admission.\n\n# Objects\n- Patients: p1, p2, p3\n- Beds: b1, b2, b3\n- Wards: w_med\n\n# Initial State\n- Ward w_med: Beds b1, b2, and b3 are part of this ward. All patients p1, p2, and p3 belong to this ward.\n- Bed b1: Occupied by patient p1.\n- Bed b2: Occupied by patient p2.\n- Bed b3: Blocked and dirty; unavailable for use.\n- Patient p3: Waiting for a bed.\n\n# Goal State\n- Patient p1 remains in bed b1.\n- Patient p2 is in bed b3.\n- Patient p3 is admitted into bed b2.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Prepare a blocked+dirty bed, relocate a patient, then admit a waiting patient into the freed bed.",
+        "initial_state": "Two beds occupied; third bed is blocked and dirty; one patient is waiting.",
+        "goal": "p2 relocated to b3, p3 admitted into b2, and p1 stays in b1."
+      },
+      "objects": [
+        {
+          "name": "w_med",
+          "kind": "ward",
+          "summary": "Medical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "p1",
+          "kind": "patient",
+          "summary": "Existing med patient staying in place.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b1"
+          }
+        },
+        {
+          "name": "p2",
+          "kind": "patient",
+          "summary": "Existing med patient to relocate.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b2"
+          }
+        },
+        {
+          "name": "p3",
+          "kind": "patient",
+          "summary": "Waiting med patient to admit.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "b1",
+          "kind": "bed",
+          "summary": "Med bed b1 occupied by p1.",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p1"
+          }
+        },
+        {
+          "name": "b2",
+          "kind": "bed",
+          "summary": "Med bed b2 occupied by p2.",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p2"
+          }
+        },
+        {
+          "name": "b3",
+          "kind": "bed",
+          "summary": "Med bed b3 blocked and dirty.",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": true,
+            "bed_blocked": true,
+            "occupied_by": null
+          }
+        }
+      ],
+      "optimal_cost": 5,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p10",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA hospital with ICU and Medical wards, several patients, and beds in various states (occupied, dirty, or waiting).\n\n# Objects\n- Patients: p_emerg1, p_emerg2, p_iso, p_stable1, p_overflow, p_old_icu, p_old_med\n- Beds: b_icu1, b_icu2, b_med1, b_med2, b_med_iso\n- Wards: w_icu, w_med\n\n# Initial State\n- ICU ward:\n  - Bed b_icu1 has patient p_old_icu.\n  - Bed b_icu2 has patient p_overflow (a medical patient currently placed in ICU).\n  - Patients p_emerg1 and p_emerg2 are waiting to be placed in ICU beds.\n- Medical ward:\n  - Bed b_med1 has patient p_stable1.\n  - Bed b_med2 has patient p_old_med.\n  - Bed b_med_iso is an isolation-capable bed and is currently dirty.\n  - Patient p_iso requires an isolation-capable medical bed and is waiting.\n- Ward requirements:\n  - p_emerg1, p_emerg2, p_old_icu belong in ICU.\n  - p_iso, p_stable1, p_overflow, p_old_med belong in Medical.\n\n# Goal State\n- p_emerg1 is placed in bed b_icu1 in the ICU.\n- p_emerg2 is placed in bed b_icu2 in the ICU.\n- p_iso is placed in the isolation-capable bed b_med_iso in the Medical ward.\n- p_stable1 remains in bed b_med1 in the Medical ward.\n- p_overflow is relocated to bed b_med2 in the Medical ward.\n- p_old_icu is discharged from the hospital.\n- p_old_med is discharged from the hospital.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Clear legacy patients, fix ICU overflow, activate an isolation bed, and place two waiting ICU patients.",
+        "initial_state": "Both ICU beds are occupied (one by ICU patient to discharge, one by med overflow). Both med beds are occupied. Isolation bed exists but dirty. Two ICU patients and one isolation patient are waiting.",
+        "goal": "Waiting ICU patients placed into ICU beds, isolation patient in isolation bed, overflow moved to med2, stable patient remains, and legacy patients discharged."
+      },
+      "objects": [
+        {
+          "name": "w_icu",
+          "kind": "ward",
+          "summary": "ICU ward.",
+          "attributes": {}
+        },
+        {
+          "name": "w_med",
+          "kind": "ward",
+          "summary": "Medical ward.",
+          "attributes": {}
+        },
+        {
+          "name": "p_emerg1",
+          "kind": "patient",
+          "summary": "Waiting ICU patient.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "p_emerg2",
+          "kind": "patient",
+          "summary": "Waiting ICU patient.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "p_iso",
+          "kind": "patient",
+          "summary": "Isolation-required patient waiting.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": true,
+            "initial_status": "waiting"
+          }
+        },
+        {
+          "name": "p_stable1",
+          "kind": "patient",
+          "summary": "Stable med patient who must remain in med1.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_med1"
+          }
+        },
+        {
+          "name": "p_overflow",
+          "kind": "patient",
+          "summary": "Med overflow patient currently in ICU2.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_icu2"
+          }
+        },
+        {
+          "name": "p_old_icu",
+          "kind": "patient",
+          "summary": "ICU patient to discharge.",
+          "attributes": {
+            "required_ward": "w_icu",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_icu1"
+          }
+        },
+        {
+          "name": "p_old_med",
+          "kind": "patient",
+          "summary": "Med patient to discharge from med2.",
+          "attributes": {
+            "required_ward": "w_med",
+            "isolation_required": false,
+            "initial_status": "in-bed",
+            "current_bed": "b_med2"
+          }
+        },
+        {
+          "name": "b_icu1",
+          "kind": "bed",
+          "summary": "ICU bed 1 (occupied).",
+          "attributes": {
+            "ward": "w_icu",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_old_icu"
+          }
+        },
+        {
+          "name": "b_icu2",
+          "kind": "bed",
+          "summary": "ICU bed 2 (occupied).",
+          "attributes": {
+            "ward": "w_icu",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_overflow"
+          }
+        },
+        {
+          "name": "b_med1",
+          "kind": "bed",
+          "summary": "Med bed 1 (stable patient).",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_stable1"
+          }
+        },
+        {
+          "name": "b_med2",
+          "kind": "bed",
+          "summary": "Med bed 2 (occupied).",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": false,
+            "bed_free": false,
+            "bed_dirty": false,
+            "bed_blocked": false,
+            "occupied_by": "p_old_med"
+          }
+        },
+        {
+          "name": "b_med_iso",
+          "kind": "bed",
+          "summary": "Isolation-capable med bed (dirty).",
+          "attributes": {
+            "ward": "w_med",
+            "isolation_bed": true,
+            "bed_free": false,
+            "bed_dirty": true,
+            "bed_blocked": false,
+            "occupied_by": null
+          }
+        }
+      ],
+      "optimal_cost": 10,
+      "difficulty": "hard"
+    }
+  ]
+}

@@ -1,0 +1,1561 @@
+{
+  "domain_prompt": "DOMAIN BRIEF\n\n# Summary\nThis domain models transporting packages within and between cities using trucks and airplanes. Trucks move between locations inside the same city, while airplanes fly between airports. Packages can be loaded into and unloaded from trucks and airplanes. Each action increases the total-cost.\n\n# Object Types\n- Package: A cargo item that needs to be transported.\n- Truck: A vehicle used for ground transport within a single city.\n- Airplane: A vehicle used for air transport between different cities.\n- City: A large geographical area containing multiple locations.\n- Location: A specific point (like a post office or airport) within a city.\n\n# World Description\nThe logistics network operates under specific geographic and mechanical rules:\n1. Geography: Locations are grouped into Cities. Trucks are local vehicles; they can move between locations, but only if both locations are inside the same city.\n2. Air Travel: Airplanes are long-distance vehicles. They fly between specific locations designated as Airports. An airplane can only take off from an airport and land at an airport.\n3. Cargo Handling: Packages can be carried by both trucks and airplanes. To load a package, the vehicle and the package must be at the same location.\n4. Cost: Every movement or handling action (driving, flying, loading, unloading) consumes resources, adding 1 to the Total Cost.\n\n# Actions\n\n## Action: drive-truck\n- Parameters: Target Truck, From Location, To Location, City\n- Requirements: The Truck must currently be at the 'From Location'. Crucially, both the 'From Location' and the 'To Location' must be located within the same City.\n- Effects: The Truck moves to the 'To Location'. It is no longer at the 'From Location'. This action adds 1 to the total cost.\n\n## Action: fly-airplane\n- Parameters: Target Airplane, From Location, To Location\n- Requirements: The Airplane must currently be at the 'From Location'. Both the 'From Location' and the 'To Location' must be designated Airports.\n- Effects: The Airplane flies to the 'To Location'. It is no longer at the 'From Location'. This action adds 1 to the total cost.\n\n## Action: load-truck\n- Parameters: Target Package, Target Truck, Location\n- Requirements: The Truck and the Package must both be at the specified Location.\n- Effects: The Package is loaded into the Truck. The Package is no longer on the ground at the Location. This action adds 1 to the total cost.\n\n## Action: unload-truck\n- Parameters: Target Package, Target Truck, Location\n- Requirements: The Truck must be at the specified Location, and it must currently be carrying the Target Package.\n- Effects: The Package is unloaded from the Truck onto the ground at the Location. The Package is no longer in the Truck. This action adds 1 to the total cost.\n\n## Action: load-airplane\n- Parameters: Target Package, Target Airplane, Location\n- Requirements: The Airplane and the Package must both be at the specified Location. The Location must be an Airport.\n- Effects: The Package is loaded into the Airplane. The Package is no longer on the ground. This action adds 1 to the total cost.\n\n## Action: unload-airplane\n- Parameters: Target Package, Target Airplane, Location\n- Requirements: The Airplane must be at the specified Location, and it must currently be carrying the Target Package.\n- Effects: The Package is unloaded from the Airplane onto the ground at the Location. The Package is no longer in the Airplane. This action adds 1 to the total cost.",
+  "actions": [
+    {
+      "name": "drive-truck",
+      "signature": "drive-truck(TRUCK, FROM, TO, CITY)",
+      "parameters": [
+        {
+          "name": "TRUCK",
+          "kind": "truck"
+        },
+        {
+          "name": "FROM",
+          "kind": "location"
+        },
+        {
+          "name": "TO",
+          "kind": "location"
+        },
+        {
+          "name": "CITY",
+          "kind": "city"
+        }
+      ],
+      "preconditions": [
+        "TRUCK is at FROM.",
+        "FROM is in CITY.",
+        "TO is in CITY."
+      ],
+      "effects": [
+        "TRUCK is no longer at FROM.",
+        "TRUCK is now at TO."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "load-truck",
+      "signature": "load-truck(PACKAGE, TRUCK, LOCATION)",
+      "parameters": [
+        {
+          "name": "PACKAGE",
+          "kind": "package"
+        },
+        {
+          "name": "TRUCK",
+          "kind": "truck"
+        },
+        {
+          "name": "LOCATION",
+          "kind": "location"
+        }
+      ],
+      "preconditions": [
+        "PACKAGE is at LOCATION.",
+        "TRUCK is at LOCATION."
+      ],
+      "effects": [
+        "PACKAGE is inside TRUCK.",
+        "PACKAGE is no longer at LOCATION."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "unload-truck",
+      "signature": "unload-truck(PACKAGE, TRUCK, LOCATION)",
+      "parameters": [
+        {
+          "name": "PACKAGE",
+          "kind": "package"
+        },
+        {
+          "name": "TRUCK",
+          "kind": "truck"
+        },
+        {
+          "name": "LOCATION",
+          "kind": "location"
+        }
+      ],
+      "preconditions": [
+        "PACKAGE is inside TRUCK.",
+        "TRUCK is at LOCATION."
+      ],
+      "effects": [
+        "PACKAGE is at LOCATION.",
+        "PACKAGE is no longer inside TRUCK."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "fly-airplane",
+      "signature": "fly-airplane(PLANE, AIRPORT_FROM, AIRPORT_TO)",
+      "parameters": [
+        {
+          "name": "PLANE",
+          "kind": "airplane"
+        },
+        {
+          "name": "AIRPORT_FROM",
+          "kind": "location"
+        },
+        {
+          "name": "AIRPORT_TO",
+          "kind": "location"
+        }
+      ],
+      "preconditions": [
+        "PLANE is at AIRPORT_FROM.",
+        "AIRPORT_FROM is an airport.",
+        "AIRPORT_TO is an airport."
+      ],
+      "effects": [
+        "PLANE is no longer at AIRPORT_FROM.",
+        "PLANE is now at AIRPORT_TO."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "load-airplane",
+      "signature": "load-airplane(PACKAGE, PLANE, AIRPORT)",
+      "parameters": [
+        {
+          "name": "PACKAGE",
+          "kind": "package"
+        },
+        {
+          "name": "PLANE",
+          "kind": "airplane"
+        },
+        {
+          "name": "AIRPORT",
+          "kind": "location"
+        }
+      ],
+      "preconditions": [
+        "PACKAGE is at AIRPORT.",
+        "PLANE is at AIRPORT.",
+        "AIRPORT is an airport."
+      ],
+      "effects": [
+        "PACKAGE is inside PLANE.",
+        "PACKAGE is no longer at AIRPORT."
+      ],
+      "cost": 1
+    },
+    {
+      "name": "unload-airplane",
+      "signature": "unload-airplane(PACKAGE, PLANE, AIRPORT)",
+      "parameters": [
+        {
+          "name": "PACKAGE",
+          "kind": "package"
+        },
+        {
+          "name": "PLANE",
+          "kind": "airplane"
+        },
+        {
+          "name": "AIRPORT",
+          "kind": "location"
+        }
+      ],
+      "preconditions": [
+        "PACKAGE is inside PLANE.",
+        "PLANE is at AIRPORT."
+      ],
+      "effects": [
+        "PACKAGE is at AIRPORT.",
+        "PACKAGE is no longer inside PLANE."
+      ],
+      "cost": 1
+    }
+  ],
+  "problems": [
+    {
+      "id": "p01",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nGround and air logistics across two cities: trucks and an airplane, with one package to be delivered.\n\n# Objects\n- Cities: cit_1bce23, cit_4ed853\n- Locations: loc_174178, loc_00d56d, loc_568dd1, loc_0508bc\n- Trucks: tru_b8d27c, tru_77e50e\n- Airplanes: air_4f77ec\n- Packages: pac_e7813b\n\n# Initial State\n- City cit_1bce23: Contains locations loc_174178 and loc_00d56d. The airplane air_4f77ec is at loc_00d56d (an airport). The truck tru_b8d27c is at loc_174178. The package pac_e7813b is on the ground at loc_174178.\n- City cit_4ed853: Contains locations loc_568dd1 and loc_0508bc. The truck tru_77e50e is at loc_0508bc (an airport).\n- Airports: loc_00d56d in cit_1bce23 and loc_0508bc in cit_4ed853 are airports.\n\n# Goal State\n- The package pac_e7813b is on the ground at loc_568dd1 in city cit_4ed853.\n\n# Optimization Metric\n- Minimize total cost",
+      "overview": {
+        "description": "Ship packages from cit_1bce23 to cit_4ed853 using a truck + airplane + truck pipeline.",
+        "initial_state": "Packages at loc_174178: pac_e7813b. tru_b8d27c at loc_174178. air_4f77ec at loc_00d56d. tru_77e50e at loc_0508bc.",
+        "goal": "All packages are at loc_568dd1: pac_e7813b."
+      },
+      "objects": [
+        {
+          "name": "cit_1bce23",
+          "kind": "city",
+          "summary": "City 1.",
+          "attributes": {}
+        },
+        {
+          "name": "cit_4ed853",
+          "kind": "city",
+          "summary": "City 2.",
+          "attributes": {}
+        },
+        {
+          "name": "loc_174178",
+          "kind": "location",
+          "summary": "A depot in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": false,
+            "role": "origin"
+          }
+        },
+        {
+          "name": "loc_00d56d",
+          "kind": "location",
+          "summary": "The airport in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_0508bc",
+          "kind": "location",
+          "summary": "The airport in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_568dd1",
+          "kind": "location",
+          "summary": "A delivery site in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": false,
+            "role": "destination"
+          }
+        },
+        {
+          "name": "tru_b8d27c",
+          "kind": "truck",
+          "summary": "Truck operating in cit_1bce23.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "city": "cit_1bce23"
+          }
+        },
+        {
+          "name": "tru_77e50e",
+          "kind": "truck",
+          "summary": "Truck operating in cit_4ed853.",
+          "attributes": {
+            "start_location": "loc_0508bc",
+            "city": "cit_4ed853"
+          }
+        },
+        {
+          "name": "air_4f77ec",
+          "kind": "airplane",
+          "summary": "Cargo airplane connecting airports.",
+          "attributes": {
+            "start_location": "loc_00d56d"
+          }
+        },
+        {
+          "name": "pac_e7813b",
+          "kind": "package",
+          "summary": "Package pac_e7813b.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        }
+      ],
+      "optimal_cost": 9,
+      "difficulty": "easy"
+    },
+    {
+      "id": "p02",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nTwo cities with two locations each, connected by air via their airports; two trucks, one airplane, and two packages starting together in one city.\n\n# Objects\n- Cities: cit_1bce23, cit_4ed853\n- Locations: loc_174178, loc_00d56d, loc_568dd1, loc_0508bc\n- Trucks: tru_b8d27c, tru_77e50e\n- Airplanes: air_4f77ec\n- Packages: pac_e7813b, pac_342fd4\n\n# Initial State\n- City cit_1bce23: Contains locations loc_174178 and loc_00d56d. loc_00d56d is an airport. Truck tru_b8d27c is at loc_174178. The airplane air_4f77ec is at loc_00d56d. Packages pac_e7813b and pac_342fd4 are on the ground at loc_174178.\n- City cit_4ed853: Contains locations loc_568dd1 and loc_0508bc. loc_0508bc is an airport. Truck tru_77e50e is at loc_0508bc.\n\n# Goal State\n- Package pac_e7813b is on the ground at loc_568dd1 in city cit_4ed853.\n- Package pac_342fd4 is on the ground at loc_568dd1 in city cit_4ed853.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Ship packages from cit_1bce23 to cit_4ed853 using a truck + airplane + truck pipeline.",
+        "initial_state": "Packages at loc_174178: pac_e7813b, pac_342fd4. tru_b8d27c at loc_174178. air_4f77ec at loc_00d56d. tru_77e50e at loc_0508bc.",
+        "goal": "All packages are at loc_568dd1: pac_e7813b, pac_342fd4."
+      },
+      "objects": [
+        {
+          "name": "cit_1bce23",
+          "kind": "city",
+          "summary": "City 1.",
+          "attributes": {}
+        },
+        {
+          "name": "cit_4ed853",
+          "kind": "city",
+          "summary": "City 2.",
+          "attributes": {}
+        },
+        {
+          "name": "loc_174178",
+          "kind": "location",
+          "summary": "A depot in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": false,
+            "role": "origin"
+          }
+        },
+        {
+          "name": "loc_00d56d",
+          "kind": "location",
+          "summary": "The airport in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_0508bc",
+          "kind": "location",
+          "summary": "The airport in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_568dd1",
+          "kind": "location",
+          "summary": "A delivery site in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": false,
+            "role": "destination"
+          }
+        },
+        {
+          "name": "tru_b8d27c",
+          "kind": "truck",
+          "summary": "Truck operating in cit_1bce23.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "city": "cit_1bce23"
+          }
+        },
+        {
+          "name": "tru_77e50e",
+          "kind": "truck",
+          "summary": "Truck operating in cit_4ed853.",
+          "attributes": {
+            "start_location": "loc_0508bc",
+            "city": "cit_4ed853"
+          }
+        },
+        {
+          "name": "air_4f77ec",
+          "kind": "airplane",
+          "summary": "Cargo airplane connecting airports.",
+          "attributes": {
+            "start_location": "loc_00d56d"
+          }
+        },
+        {
+          "name": "pac_e7813b",
+          "kind": "package",
+          "summary": "Package pac_e7813b.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_342fd4",
+          "kind": "package",
+          "summary": "Package pac_342fd4.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        }
+      ],
+      "optimal_cost": 15,
+      "difficulty": "easy"
+    },
+    {
+      "id": "p03",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nTwo cities with local locations and airports; two trucks and one airplane; three packages starting together in one city.\n\n# Objects\n- Cities: cit_1bce23, cit_4ed853\n- Locations: loc_174178, loc_00d56d, loc_568dd1, loc_0508bc\n- Trucks: tru_b8d27c, tru_77e50e\n- Airplanes: air_4f77ec\n- Packages: pac_e7813b, pac_342fd4, pac_71c170\n\n# Initial State\n- City layout: loc_174178 and loc_00d56d are in cit_1bce23; loc_568dd1 and loc_0508bc are in cit_4ed853. loc_00d56d and loc_0508bc are airports.\n- Vehicles: Truck tru_b8d27c is at loc_174178 in cit_1bce23. Truck tru_77e50e is at loc_0508bc in cit_4ed853. Airplane air_4f77ec is at the airport loc_00d56d in cit_1bce23.\n- Packages: pac_e7813b, pac_342fd4, and pac_71c170 are all on the ground at loc_174178 in cit_1bce23.\n\n# Goal State\n- pac_e7813b is on the ground at loc_568dd1 in cit_4ed853.\n- pac_342fd4 is on the ground at loc_568dd1 in cit_4ed853.\n- pac_71c170 is on the ground at loc_568dd1 in cit_4ed853.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Ship packages from cit_1bce23 to cit_4ed853 using a truck + airplane + truck pipeline.",
+        "initial_state": "Packages at loc_174178: pac_e7813b, pac_342fd4, pac_71c170. tru_b8d27c at loc_174178. air_4f77ec at loc_00d56d. tru_77e50e at loc_0508bc.",
+        "goal": "All packages are at loc_568dd1: pac_e7813b, pac_342fd4, pac_71c170."
+      },
+      "objects": [
+        {
+          "name": "cit_1bce23",
+          "kind": "city",
+          "summary": "City 1.",
+          "attributes": {}
+        },
+        {
+          "name": "cit_4ed853",
+          "kind": "city",
+          "summary": "City 2.",
+          "attributes": {}
+        },
+        {
+          "name": "loc_174178",
+          "kind": "location",
+          "summary": "A depot in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": false,
+            "role": "origin"
+          }
+        },
+        {
+          "name": "loc_00d56d",
+          "kind": "location",
+          "summary": "The airport in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_0508bc",
+          "kind": "location",
+          "summary": "The airport in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_568dd1",
+          "kind": "location",
+          "summary": "A delivery site in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": false,
+            "role": "destination"
+          }
+        },
+        {
+          "name": "tru_b8d27c",
+          "kind": "truck",
+          "summary": "Truck operating in cit_1bce23.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "city": "cit_1bce23"
+          }
+        },
+        {
+          "name": "tru_77e50e",
+          "kind": "truck",
+          "summary": "Truck operating in cit_4ed853.",
+          "attributes": {
+            "start_location": "loc_0508bc",
+            "city": "cit_4ed853"
+          }
+        },
+        {
+          "name": "air_4f77ec",
+          "kind": "airplane",
+          "summary": "Cargo airplane connecting airports.",
+          "attributes": {
+            "start_location": "loc_00d56d"
+          }
+        },
+        {
+          "name": "pac_e7813b",
+          "kind": "package",
+          "summary": "Package pac_e7813b.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_342fd4",
+          "kind": "package",
+          "summary": "Package pac_342fd4.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_71c170",
+          "kind": "package",
+          "summary": "Package pac_71c170.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        }
+      ],
+      "optimal_cost": 21,
+      "difficulty": "easy"
+    },
+    {
+      "id": "p04",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA small logistics network with two cities, two airports, one truck, one airplane, and four packages starting together in one city.\n\n# Objects\n- City: cit_1bce23, cit_4ed853\n- Location: loc_174178, loc_00d56d, loc_568dd1, loc_0508bc\n- Truck: tru_b8d27c, tru_77e50e\n- Airplane: air_4f77ec\n- Package: pac_e7813b, pac_342fd4, pac_71c170, pac_882714\n\n# Initial State\n- City layout: loc_174178 and loc_00d56d are in cit_1bce23. loc_568dd1 and loc_0508bc are in cit_4ed853.\n- Airports: loc_00d56d and loc_0508bc are airports.\n- Vehicles and cargo: The truck tru_b8d27c is at loc_174178. The airplane air_4f77ec is at loc_00d56d. All four packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714) are on the ground at loc_174178.\n\n# Goal State\n- All four packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714) are on the ground at loc_568dd1 in cit_4ed853.\n\n# Optimization Metric\nMinimize total cost",
+      "overview": {
+        "description": "Transport packages from cit_1bce23 to cit_4ed853.",
+        "initial_state": "Packages at loc_174178 (cit_1bce23). Truck available in cit_1bce23. Plane available. No truck present in cit_4ed853.",
+        "goal": "All packages at loc_568dd1."
+      },
+      "objects": [
+        {
+          "name": "cit_1bce23",
+          "kind": "city",
+          "summary": "City 1.",
+          "attributes": {}
+        },
+        {
+          "name": "cit_4ed853",
+          "kind": "city",
+          "summary": "City 2.",
+          "attributes": {}
+        },
+        {
+          "name": "loc_174178",
+          "kind": "location",
+          "summary": "A depot in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": false,
+            "role": "origin"
+          }
+        },
+        {
+          "name": "loc_00d56d",
+          "kind": "location",
+          "summary": "The airport in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_0508bc",
+          "kind": "location",
+          "summary": "The airport in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_568dd1",
+          "kind": "location",
+          "summary": "A delivery site in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": false,
+            "role": "destination"
+          }
+        },
+        {
+          "name": "tru_b8d27c",
+          "kind": "truck",
+          "summary": "Truck operating in cit_1bce23.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "city": "cit_1bce23"
+          }
+        },
+        {
+          "name": "tru_77e50e",
+          "kind": "truck",
+          "summary": "A truck object (currently not at any location).",
+          "attributes": {
+            "start_location": null,
+            "city": "cit_4ed853"
+          }
+        },
+        {
+          "name": "air_4f77ec",
+          "kind": "airplane",
+          "summary": "Cargo airplane.",
+          "attributes": {
+            "start_location": "loc_00d56d"
+          }
+        },
+        {
+          "name": "pac_e7813b",
+          "kind": "package",
+          "summary": "Package pac_e7813b.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_342fd4",
+          "kind": "package",
+          "summary": "Package pac_342fd4.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_71c170",
+          "kind": "package",
+          "summary": "Package pac_71c170.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_882714",
+          "kind": "package",
+          "summary": "Package pac_882714.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        }
+      ],
+      "optimal_cost": -1,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p05",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA logistics network with two cities, two trucks, one airplane, and five packages distributed at specific locations.\n\n# Objects\n- Cities: cit_1bce23, cit_4ed853\n- Locations: loc_174178, loc_00d56d, loc_568dd1, loc_0508bc\n- Trucks: tru_b8d27c, tru_77e50e\n- Airplanes: air_4f77ec\n- Packages: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807\n\n# Initial State\n- City layout: loc_174178 and loc_00d56d are in cit_1bce23; loc_568dd1 and loc_0508bc are in cit_4ed853. loc_0508bc is an airport.\n- Vehicles: Truck tru_b8d27c is at loc_174178. Truck tru_77e50e is at loc_0508bc. Airplane air_4f77ec is at loc_00d56d.\n- Cargo: All five packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807) are on the ground at loc_174178.\n\n# Goal State\n- All five packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807) are on the ground at loc_568dd1.\n\n# Optimization Metric\nMinimize total cost.",
+      "overview": {
+        "description": "Transport packages from cit_1bce23 to cit_4ed853.",
+        "initial_state": "Packages at loc_174178. Plane at loc_00d56d. loc_0508bc is an airport.",
+        "goal": "All packages at loc_568dd1."
+      },
+      "objects": [
+        {
+          "name": "cit_1bce23",
+          "kind": "city",
+          "summary": "City 1.",
+          "attributes": {}
+        },
+        {
+          "name": "cit_4ed853",
+          "kind": "city",
+          "summary": "City 2.",
+          "attributes": {}
+        },
+        {
+          "name": "loc_174178",
+          "kind": "location",
+          "summary": "A depot in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": false,
+            "role": "origin"
+          }
+        },
+        {
+          "name": "loc_00d56d",
+          "kind": "location",
+          "summary": "A location in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": false
+          }
+        },
+        {
+          "name": "loc_0508bc",
+          "kind": "location",
+          "summary": "The airport in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_568dd1",
+          "kind": "location",
+          "summary": "A delivery site in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": false,
+            "role": "destination"
+          }
+        },
+        {
+          "name": "tru_b8d27c",
+          "kind": "truck",
+          "summary": "Truck operating in cit_1bce23.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "city": "cit_1bce23"
+          }
+        },
+        {
+          "name": "tru_77e50e",
+          "kind": "truck",
+          "summary": "Truck operating in cit_4ed853.",
+          "attributes": {
+            "start_location": "loc_0508bc",
+            "city": "cit_4ed853"
+          }
+        },
+        {
+          "name": "air_4f77ec",
+          "kind": "airplane",
+          "summary": "Cargo airplane.",
+          "attributes": {
+            "start_location": "loc_00d56d"
+          }
+        },
+        {
+          "name": "pac_e7813b",
+          "kind": "package",
+          "summary": "Package pac_e7813b.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_342fd4",
+          "kind": "package",
+          "summary": "Package pac_342fd4.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_71c170",
+          "kind": "package",
+          "summary": "Package pac_71c170.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_882714",
+          "kind": "package",
+          "summary": "Package pac_882714.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_bc8807",
+          "kind": "package",
+          "summary": "Package pac_bc8807.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        }
+      ],
+      "optimal_cost": -1,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p06",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nTwo cities with four locations, two trucks, one airplane, and six packages all starting together in one city location.\n\n# Objects\n- Cities: cit_1bce23, cit_4ed853\n- Locations: loc_174178, loc_00d56d, loc_568dd1, loc_0508bc\n- Trucks: tru_b8d27c, tru_77e50e\n- Airplanes: air_4f77ec\n- Packages: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d\n\n# Initial State\n- City layout: loc_174178 and loc_00d56d are in cit_1bce23. loc_568dd1 and loc_0508bc are in cit_4ed853.\n- Airports: loc_00d56d and loc_0508bc are airports.\n- Vehicles and packages: Truck tru_b8d27c and all six packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d) are at loc_174178 in cit_1bce23. The airplane air_4f77ec is at the airport loc_00d56d in cit_1bce23. Truck tru_77e50e is at loc_0508bc in cit_4ed853.\n\n# Goal State\n- Each of the six packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d) is on the ground at loc_568dd1 in cit_4ed853.\n\n# Optimization Metric\n- Minimize total cost",
+      "overview": {
+        "description": "Ship packages from cit_1bce23 to cit_4ed853 using a truck + airplane + truck pipeline.",
+        "initial_state": "Packages at loc_174178: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d. tru_b8d27c at loc_174178. air_4f77ec at loc_00d56d. tru_77e50e at loc_0508bc.",
+        "goal": "All packages are at loc_568dd1: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d."
+      },
+      "objects": [
+        {
+          "name": "cit_1bce23",
+          "kind": "city",
+          "summary": "City 1.",
+          "attributes": {}
+        },
+        {
+          "name": "cit_4ed853",
+          "kind": "city",
+          "summary": "City 2.",
+          "attributes": {}
+        },
+        {
+          "name": "loc_174178",
+          "kind": "location",
+          "summary": "A depot in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": false,
+            "role": "origin"
+          }
+        },
+        {
+          "name": "loc_00d56d",
+          "kind": "location",
+          "summary": "The airport in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_0508bc",
+          "kind": "location",
+          "summary": "The airport in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_568dd1",
+          "kind": "location",
+          "summary": "A delivery site in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": false,
+            "role": "destination"
+          }
+        },
+        {
+          "name": "tru_b8d27c",
+          "kind": "truck",
+          "summary": "Truck operating in cit_1bce23.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "city": "cit_1bce23"
+          }
+        },
+        {
+          "name": "tru_77e50e",
+          "kind": "truck",
+          "summary": "Truck operating in cit_4ed853.",
+          "attributes": {
+            "start_location": "loc_0508bc",
+            "city": "cit_4ed853"
+          }
+        },
+        {
+          "name": "air_4f77ec",
+          "kind": "airplane",
+          "summary": "Cargo airplane connecting airports.",
+          "attributes": {
+            "start_location": "loc_00d56d"
+          }
+        },
+        {
+          "name": "pac_e7813b",
+          "kind": "package",
+          "summary": "Package pac_e7813b.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_342fd4",
+          "kind": "package",
+          "summary": "Package pac_342fd4.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_71c170",
+          "kind": "package",
+          "summary": "Package pac_71c170.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_882714",
+          "kind": "package",
+          "summary": "Package pac_882714.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_bc8807",
+          "kind": "package",
+          "summary": "Package pac_bc8807.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_a3352d",
+          "kind": "package",
+          "summary": "Package pac_a3352d.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        }
+      ],
+      "optimal_cost": 39,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p07",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA two-city logistics setup with two trucks, one airplane, and seven packages starting in one city, aiming to deliver all packages to a location in the other city.\n\n# Objects\n- Cities: cit_1bce23, cit_4ed853\n- Locations: loc_174178, loc_00d56d, loc_568dd1, loc_0508bc\n- Trucks: tru_b8d27c, tru_77e50e\n- Airplanes: air_4f77ec\n- Packages: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae\n\n# Initial State\n- City layout: loc_174178 and loc_00d56d are in cit_1bce23; loc_568dd1 and loc_0508bc are in cit_4ed853. Airports are at loc_00d56d and loc_0508bc.\n- Vehicles: Truck tru_b8d27c is at loc_174178. Truck tru_77e50e is at loc_0508bc. Airplane air_4f77ec is at loc_00d56d.\n- Packages: All seven packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae) are on the ground at loc_174178.\n\n# Goal State\n- Each of the seven packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae) is on the ground at loc_568dd1.\n\n# Optimization Metric\nMinimize total cost",
+      "overview": {
+        "description": "Ship packages from cit_1bce23 to cit_4ed853 using a truck + airplane + truck pipeline.",
+        "initial_state": "Packages at loc_174178: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae. tru_b8d27c at loc_174178. air_4f77ec at loc_00d56d. tru_77e50e at loc_0508bc.",
+        "goal": "All packages are at loc_568dd1: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae."
+      },
+      "objects": [
+        {
+          "name": "cit_1bce23",
+          "kind": "city",
+          "summary": "City 1.",
+          "attributes": {}
+        },
+        {
+          "name": "cit_4ed853",
+          "kind": "city",
+          "summary": "City 2.",
+          "attributes": {}
+        },
+        {
+          "name": "loc_174178",
+          "kind": "location",
+          "summary": "A depot in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": false,
+            "role": "origin"
+          }
+        },
+        {
+          "name": "loc_00d56d",
+          "kind": "location",
+          "summary": "The airport in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_0508bc",
+          "kind": "location",
+          "summary": "The airport in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_568dd1",
+          "kind": "location",
+          "summary": "A delivery site in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": false,
+            "role": "destination"
+          }
+        },
+        {
+          "name": "tru_b8d27c",
+          "kind": "truck",
+          "summary": "Truck operating in cit_1bce23.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "city": "cit_1bce23"
+          }
+        },
+        {
+          "name": "tru_77e50e",
+          "kind": "truck",
+          "summary": "Truck operating in cit_4ed853.",
+          "attributes": {
+            "start_location": "loc_0508bc",
+            "city": "cit_4ed853"
+          }
+        },
+        {
+          "name": "air_4f77ec",
+          "kind": "airplane",
+          "summary": "Cargo airplane connecting airports.",
+          "attributes": {
+            "start_location": "loc_00d56d"
+          }
+        },
+        {
+          "name": "pac_e7813b",
+          "kind": "package",
+          "summary": "Package pac_e7813b.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_342fd4",
+          "kind": "package",
+          "summary": "Package pac_342fd4.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_71c170",
+          "kind": "package",
+          "summary": "Package pac_71c170.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_882714",
+          "kind": "package",
+          "summary": "Package pac_882714.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_bc8807",
+          "kind": "package",
+          "summary": "Package pac_bc8807.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_a3352d",
+          "kind": "package",
+          "summary": "Package pac_a3352d.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_39acae",
+          "kind": "package",
+          "summary": "Package pac_39acae.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        }
+      ],
+      "optimal_cost": 45,
+      "difficulty": "medium"
+    },
+    {
+      "id": "p08",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA logistics network with two cities, two trucks, one airplane, and eight packages starting in one city.\n\n# Objects\n- Cities: cit_1bce23, cit_4ed853\n- Locations: loc_174178, loc_00d56d, loc_568dd1, loc_0508bc\n- Trucks: tru_b8d27c, tru_77e50e\n- Airplanes: air_4f77ec\n- Packages: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280\n\n# Initial State\n- City layout: loc_174178 and loc_00d56d are in city cit_1bce23. loc_568dd1 and loc_0508bc are in city cit_4ed853.\n- Airports: loc_00d56d and loc_0508bc are airports.\n- Vehicles and cargo:\n  - Truck tru_b8d27c is at loc_174178 in cit_1bce23.\n  - Truck tru_77e50e is at loc_0508bc in cit_4ed853.\n  - Airplane air_4f77ec is at the airport loc_00d56d in cit_1bce23.\n  - All eight packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280) are on the ground at loc_174178 in cit_1bce23.\n\n# Goal State\n- All eight packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280) are on the ground at loc_568dd1 in cit_4ed853.\n\n# Optimization Metric\nMinimize total-cost",
+      "overview": {
+        "description": "Ship packages from cit_1bce23 to cit_4ed853 using a truck + airplane + truck pipeline.",
+        "initial_state": "Packages at loc_174178: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280. tru_b8d27c at loc_174178. air_4f77ec at loc_00d56d. tru_77e50e at loc_0508bc.",
+        "goal": "All packages are at loc_568dd1: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280."
+      },
+      "objects": [
+        {
+          "name": "cit_1bce23",
+          "kind": "city",
+          "summary": "City 1.",
+          "attributes": {}
+        },
+        {
+          "name": "cit_4ed853",
+          "kind": "city",
+          "summary": "City 2.",
+          "attributes": {}
+        },
+        {
+          "name": "loc_174178",
+          "kind": "location",
+          "summary": "A depot in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": false,
+            "role": "origin"
+          }
+        },
+        {
+          "name": "loc_00d56d",
+          "kind": "location",
+          "summary": "The airport in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_0508bc",
+          "kind": "location",
+          "summary": "The airport in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_568dd1",
+          "kind": "location",
+          "summary": "A delivery site in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": false,
+            "role": "destination"
+          }
+        },
+        {
+          "name": "tru_b8d27c",
+          "kind": "truck",
+          "summary": "Truck operating in cit_1bce23.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "city": "cit_1bce23"
+          }
+        },
+        {
+          "name": "tru_77e50e",
+          "kind": "truck",
+          "summary": "Truck operating in cit_4ed853.",
+          "attributes": {
+            "start_location": "loc_0508bc",
+            "city": "cit_4ed853"
+          }
+        },
+        {
+          "name": "air_4f77ec",
+          "kind": "airplane",
+          "summary": "Cargo airplane connecting airports.",
+          "attributes": {
+            "start_location": "loc_00d56d"
+          }
+        },
+        {
+          "name": "pac_e7813b",
+          "kind": "package",
+          "summary": "Package pac_e7813b.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_342fd4",
+          "kind": "package",
+          "summary": "Package pac_342fd4.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_71c170",
+          "kind": "package",
+          "summary": "Package pac_71c170.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_882714",
+          "kind": "package",
+          "summary": "Package pac_882714.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_bc8807",
+          "kind": "package",
+          "summary": "Package pac_bc8807.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_a3352d",
+          "kind": "package",
+          "summary": "Package pac_a3352d.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_39acae",
+          "kind": "package",
+          "summary": "Package pac_39acae.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_916280",
+          "kind": "package",
+          "summary": "Package pac_916280.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        }
+      ],
+      "optimal_cost": 51,
+      "difficulty": "hard"
+    },
+    {
+      "id": "p09",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nA two-city shipping network with two trucks, one airplane, and nine packages starting together in one city.\n\n# Objects\n- Cities: cit_1bce23, cit_4ed853\n- Locations: loc_174178, loc_00d56d, loc_568dd1, loc_0508bc\n- Trucks: tru_b8d27c, tru_77e50e\n- Airplanes: air_4f77ec\n- Packages: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280, pac_238518\n\n# Initial State\n- City layout: loc_174178 and loc_00d56d are in cit_1bce23; loc_568dd1 and loc_0508bc are in cit_4ed853. loc_00d56d and loc_0508bc are airports.\n- Vehicles: Truck tru_b8d27c is at loc_174178. Truck tru_77e50e is at loc_0508bc. Airplane air_4f77ec is at loc_00d56d.\n- Packages: All nine packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280, pac_238518) are on the ground at loc_174178.\n\n# Goal State\n- All nine packages are on the ground at loc_568dd1 in cit_4ed853.\n\n# Optimization Metric\n- Minimize total cost",
+      "overview": {
+        "description": "Ship packages from cit_1bce23 to cit_4ed853 using a truck + airplane + truck pipeline.",
+        "initial_state": "Packages at loc_174178: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280, pac_238518. tru_b8d27c at loc_174178. air_4f77ec at loc_00d56d. tru_77e50e at loc_0508bc.",
+        "goal": "All packages are at loc_568dd1: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280, pac_238518."
+      },
+      "objects": [
+        {
+          "name": "cit_1bce23",
+          "kind": "city",
+          "summary": "City 1.",
+          "attributes": {}
+        },
+        {
+          "name": "cit_4ed853",
+          "kind": "city",
+          "summary": "City 2.",
+          "attributes": {}
+        },
+        {
+          "name": "loc_174178",
+          "kind": "location",
+          "summary": "A depot in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": false,
+            "role": "origin"
+          }
+        },
+        {
+          "name": "loc_00d56d",
+          "kind": "location",
+          "summary": "The airport in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_0508bc",
+          "kind": "location",
+          "summary": "The airport in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_568dd1",
+          "kind": "location",
+          "summary": "A delivery site in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": false,
+            "role": "destination"
+          }
+        },
+        {
+          "name": "tru_b8d27c",
+          "kind": "truck",
+          "summary": "Truck operating in cit_1bce23.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "city": "cit_1bce23"
+          }
+        },
+        {
+          "name": "tru_77e50e",
+          "kind": "truck",
+          "summary": "Truck operating in cit_4ed853.",
+          "attributes": {
+            "start_location": "loc_0508bc",
+            "city": "cit_4ed853"
+          }
+        },
+        {
+          "name": "air_4f77ec",
+          "kind": "airplane",
+          "summary": "Cargo airplane connecting airports.",
+          "attributes": {
+            "start_location": "loc_00d56d"
+          }
+        },
+        {
+          "name": "pac_e7813b",
+          "kind": "package",
+          "summary": "Package pac_e7813b.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_342fd4",
+          "kind": "package",
+          "summary": "Package pac_342fd4.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_71c170",
+          "kind": "package",
+          "summary": "Package pac_71c170.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_882714",
+          "kind": "package",
+          "summary": "Package pac_882714.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_bc8807",
+          "kind": "package",
+          "summary": "Package pac_bc8807.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_a3352d",
+          "kind": "package",
+          "summary": "Package pac_a3352d.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_39acae",
+          "kind": "package",
+          "summary": "Package pac_39acae.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_916280",
+          "kind": "package",
+          "summary": "Package pac_916280.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_238518",
+          "kind": "package",
+          "summary": "Package pac_238518.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        }
+      ],
+      "optimal_cost": 57,
+      "difficulty": "hard"
+    },
+    {
+      "id": "p10",
+      "prompt": "INSTANCE BRIEF\n\n# Summary\nTwo cities with two local sites each, one airport in each city, with two trucks, one airplane, and all packages starting together in City 1.\n\n# Objects\n- Cities: cit_1bce23, cit_4ed853\n- Locations: loc_174178, loc_00d56d, loc_568dd1, loc_0508bc\n- Trucks: tru_b8d27c, tru_77e50e\n- Airplanes: air_4f77ec\n- Packages: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280, pac_238518, pac_2bce98\n\n# Initial State\n- City layout: loc_174178 and loc_00d56d are in cit_1bce23; loc_568dd1 and loc_0508bc are in cit_4ed853. loc_00d56d and loc_0508bc are airports.\n- Vehicles: Truck tru_b8d27c is at loc_174178 (City 1). Truck tru_77e50e is at loc_0508bc (City 2, at the airport). Airplane air_4f77ec is at loc_00d56d (City 1 airport).\n- Packages: All ten packages (pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280, pac_238518, pac_2bce98) are on the ground at loc_174178 in City 1.\n\n# Goal State\n- Every package (pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280, pac_238518, pac_2bce98) is on the ground at loc_568dd1 in City 2.\n\n# Optimization Metric\n- Minimize total cost",
+      "overview": {
+        "description": "Ship packages from cit_1bce23 to cit_4ed853 using a truck + airplane + truck pipeline.",
+        "initial_state": "Packages at loc_174178: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280, pac_238518, pac_2bce98. tru_b8d27c at loc_174178. air_4f77ec at loc_00d56d. tru_77e50e at loc_0508bc.",
+        "goal": "All packages are at loc_568dd1: pac_e7813b, pac_342fd4, pac_71c170, pac_882714, pac_bc8807, pac_a3352d, pac_39acae, pac_916280, pac_238518, pac_2bce98."
+      },
+      "objects": [
+        {
+          "name": "cit_1bce23",
+          "kind": "city",
+          "summary": "City 1.",
+          "attributes": {}
+        },
+        {
+          "name": "cit_4ed853",
+          "kind": "city",
+          "summary": "City 2.",
+          "attributes": {}
+        },
+        {
+          "name": "loc_174178",
+          "kind": "location",
+          "summary": "A depot in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": false,
+            "role": "origin"
+          }
+        },
+        {
+          "name": "loc_00d56d",
+          "kind": "location",
+          "summary": "The airport in cit_1bce23.",
+          "attributes": {
+            "city": "cit_1bce23",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_0508bc",
+          "kind": "location",
+          "summary": "The airport in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": true
+          }
+        },
+        {
+          "name": "loc_568dd1",
+          "kind": "location",
+          "summary": "A delivery site in cit_4ed853.",
+          "attributes": {
+            "city": "cit_4ed853",
+            "airport": false,
+            "role": "destination"
+          }
+        },
+        {
+          "name": "tru_b8d27c",
+          "kind": "truck",
+          "summary": "Truck operating in cit_1bce23.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "city": "cit_1bce23"
+          }
+        },
+        {
+          "name": "tru_77e50e",
+          "kind": "truck",
+          "summary": "Truck operating in cit_4ed853.",
+          "attributes": {
+            "start_location": "loc_0508bc",
+            "city": "cit_4ed853"
+          }
+        },
+        {
+          "name": "air_4f77ec",
+          "kind": "airplane",
+          "summary": "Cargo airplane connecting airports.",
+          "attributes": {
+            "start_location": "loc_00d56d"
+          }
+        },
+        {
+          "name": "pac_e7813b",
+          "kind": "package",
+          "summary": "Package pac_e7813b.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_342fd4",
+          "kind": "package",
+          "summary": "Package pac_342fd4.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_71c170",
+          "kind": "package",
+          "summary": "Package pac_71c170.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_882714",
+          "kind": "package",
+          "summary": "Package pac_882714.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_bc8807",
+          "kind": "package",
+          "summary": "Package pac_bc8807.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_a3352d",
+          "kind": "package",
+          "summary": "Package pac_a3352d.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_39acae",
+          "kind": "package",
+          "summary": "Package pac_39acae.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_916280",
+          "kind": "package",
+          "summary": "Package pac_916280.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_238518",
+          "kind": "package",
+          "summary": "Package pac_238518.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        },
+        {
+          "name": "pac_2bce98",
+          "kind": "package",
+          "summary": "Package pac_2bce98.",
+          "attributes": {
+            "start_location": "loc_174178",
+            "goal_location": "loc_568dd1"
+          }
+        }
+      ],
+      "optimal_cost": 63,
+      "difficulty": "hard"
+    }
+  ]
+}

@@ -1,48 +1,45 @@
-# STRICT: Benchmarking Agentic Capabilities
+# STRICT: Planning (Green Agent)
 
-This repository hosts the leaderboard for the **STRICT** (Symbolic Test & Rigorous Inspection of Capabilities Tool) Oracle.
-[View the leaderboard on agentbeats](https://www.google.com/search?q=https://agentbeats.dev/oriolmirolf/STRICT).
+**STRICT** (Symbolic Test & Rigorous Inspection of Capabilities Tool) is a formal planning proctor built for the **AgentBeats** competition. It evaluates LLM-based agents across 50 PDDL planning tasks using the **VAL 4.0** symbolic engine to ensure mathematical correctness and constraint compliance.
 
-**STRICT** evaluates the planning capabilities of LLM-based systems by grounding natural-language tasks in a formal symbolic transition model. It identifies whether agents can maintain consistency over long horizons, respect hard constraints, and recover from intermediate errors.
+## 🚀 Quick Start (Local Run)
 
-## Scoring
+To run the Oracle locally for testing, ensure you have Docker installed and execute:
 
-Purple agents are evaluated across **50 tasks** (40 solvable, 10 unsolvable) in 5 domains: **Blocks, Gripper, Logistics, LoadBalancing, and Hospital**.
-
-Performance is captured in a single **Episode Score [0,1]**:
-
-* **Validity (Mandatory)**: 0 score if any action violates a formal precondition.
-* **Goal Success**: 0 score if the goal is not met (for solvable) or incorrectly flagged (for unsolvable).
-* **Efficiency**: For successful plans, the score is the ratio of **Optimal Plan Length / Actual Plan Length**.
-* **Infeasibility Detection**: 1.0 score for correctly identifying an unsolvable task without hallucinating a plan.
-
-## Requirements for Participant Agents
-
-To be proctored by the Oracle, your Purple Agent must:
-
-1. **Use the A2A SDK**: Connect to the environment to receive natural language descriptions and send tool calls.
-2. **Support Formal Tools**: Utilize `get_state()` for symbolic grounding and `act()` for step-by-step execution.
-3. **Handle Feedback**: Distinguish between recoverable syntax errors and fatal semantic precondition violations.
-
-### Docker Image Requirements
-
-* **Base Image**: Python 3.10+.
-* **Interface**: Must implement the A2A server protocol on port `8000` (or `8001` in shared network mode).
-* **Control Loop**: Supports **ReAct**, **Reflexion**, or **Plan-and-Execute** architectures.
-
-### Example Dockerfile
-
-```dockerfile
-FROM python:3.10-slim
-WORKDIR /app
-COPY . .
-RUN pip install a2a-sdk openai
-ENV PYTHONPATH=/app
-# Agent must accept the Oracle's interaction turns
-ENTRYPOINT ["python", "-m", "purple_agent.a2a_server", "--port", "8000"]
+```bash
+docker build -t formaplan-oracle .
+docker run -p 8000:8000 formaplan-oracle --host 0.0.0.0 --port 8000
 
 ```
 
----
+## 🛠️ Configuration & Environment
 
-**Would you like me to help you update the `scenario.toml` to include a "Reflexion" baseline so you can compare how memory-augmented agents perform against the standard ReAct baseline?**
+The Oracle runs end-to-end without manual intervention. It automatically manages:
+
+* **PDDL Validation**: Integrated `Validate` binary for formal state checks.
+* **Resource Extraction**: Automatically renames and reports `input_tokens` and `output_tokens` in the final evaluation artifact.
+* **Domain Suite**: Pre-loaded with `blocks`, `gripper`, `logistics`, `hospital`, and `balancer` domains.
+
+### Deployment Parameters
+
+When registered on the platform, the agent accepts the following standard A2A arguments:
+
+* `--host`: Binds the server to a specific IP (default `0.0.0.0`).
+* `--port`: Listens on a specific port (standard `8000`).
+* `--card-url`: Advertises the agent's capability card.
+
+## 📊 Evaluation Logic
+
+STRICT uses a multi-turn interactive protocol. It provides the Purple Agent with a natural language task description and validates every `act()` tool call against the formal transition model.
+
+* **Fatal Error**: Any precondition violation terminates the task immediately.
+* **Scoring**: Calculated as the ratio of the optimal reference plan length over the agent's actual plan length.
+
+## 🤝 Contributing
+
+This agent is part of a Master's Thesis on agentic planning evaluation. For technical details on the symbolic grounding logic, please refer to the `green_agent/` source code.
+
+
+http://googleusercontent.com/youtube_content/29
+
+```

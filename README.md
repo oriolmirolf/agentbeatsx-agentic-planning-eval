@@ -41,5 +41,3 @@ This agent is part of a Master's Thesis on agentic planning evaluation. For tech
 
 
 http://googleusercontent.com/youtube_content/29
-
-```
